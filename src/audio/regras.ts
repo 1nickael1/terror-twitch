@@ -24,6 +24,7 @@ export const NOMES_SOM = [
   'gemido', 'levantar', 'frascoArremesso', 'vidroQuebra',
   'chefe049Desperta', 'chefe049Passo', 'chefeToque', 'chefeReanima', 'chefeApressa', 'chefe049Morto',
   'uvAviso', 'uvLiga', 'vaporAviso', 'vaporLiga', 'perigoRecusa',
+  'doutorAlerta', 'doutorAtaque', 'doutorDor', 'doutorMorte', 'doutorPasso',
 ] as const;
 export type NomeSom = (typeof NOMES_SOM)[number];
 
@@ -100,9 +101,16 @@ function doChefe(w: World, som: NomeSom): PedidoSom | null {
  * tem som próprio.
  */
 function deInimigo(w: World, id: number, som: NomeSom): PedidoSom | null {
-  if (w.chefe?.inimigoId !== id) return inimigo(w, id, som);
+  if (w.chefe?.inimigoId !== id) {
+    const i = w.inimigos.find((i) => i.id === id);
+    return inimigo(w, id, i?.tipo === 'funcionario' ? VOZ_DOUTOR[som] ?? som : som);
+  }
   return som === 'grunhidoAtaque' ? doChefe(w, 'chefeGolpe') : null;
 }
+
+const VOZ_DOUTOR: Partial<Record<NomeSom, NomeSom>> = {
+  grunhidoAlerta: 'doutorAlerta', grunhidoAtaque: 'doutorAtaque', dorInimigo: 'doutorDor', morteInimigo: 'doutorMorte',
+};
 
 /** Som de cada estado de um perigo de área (UV, vapor); `desliga` só para o laço (sem avulso). */
 const SOM_PERIGO_AREA: Readonly<Record<PerigoArea['tipo'], Partial<Record<'aviso' | 'liga', NomeSom>>>> = {

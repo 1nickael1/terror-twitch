@@ -94,6 +94,25 @@ export class Mixer {
       recuo.gain.value = RECUO_EFEITOS;
       efeitos.connect(recuo);
       recuo.connect(geral);
+      // Reflexões curtas da instalação: envio paralelo, com som direto preservado.
+      const reverberacao = ctx.createConvolver();
+      const impulso = ctx.createBuffer(2, Math.floor(ctx.sampleRate * 1.35), ctx.sampleRate);
+      let semente = 709;
+      for (let canal = 0; canal < 2; canal++) {
+        const dados = impulso.getChannelData(canal);
+        for (let i = 0; i < dados.length; i++) {
+          semente = (Math.imul(semente, 1664525) + 1013904223) >>> 0;
+          const t = i / ctx.sampleRate;
+          dados[i] = (semente / 2147483648 - 1) * Math.exp(-t * 5) * Math.min(1, t * 50);
+        }
+      }
+      reverberacao.buffer = impulso;
+      const reflexoes = ctx.createGain();
+      reflexoes.gain.value = .13;
+      const abafador = ctx.createBiquadFilter();
+      abafador.type = 'lowpass'; abafador.frequency.value = 2400;
+      recuo.connect(reverberacao); reverberacao.connect(abafador);
+      abafador.connect(reflexoes); reflexoes.connect(geral);
       musica.connect(geral);
       geral.gain.value = this.vol.geral;
       efeitos.gain.value = this.vol.efeitos;

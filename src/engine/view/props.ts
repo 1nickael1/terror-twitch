@@ -14,6 +14,7 @@ import { pintar, unir } from './inimigosModelos';
 import { ladrilhosDasPlacas, layoutAtlas, linhasDaPlaca, normalParede, uvNoAtlas } from './placasLogica';
 import type { Recursos } from './recursos';
 import { texturaAtlasPlacas } from './texturasCenario';
+import { superficieDoProp } from './propsMateriais';
 
 type Peca = [geo: BufferGeometry, cor: number, x: number, y: number, z: number];
 
@@ -214,7 +215,6 @@ function colocar(g: Grid, d: PropDef, prof: number): { x: number; y: number; z: 
 
 export function construirProps(fase: LevelDef, g: Grid, rec: Recursos, grupo: Group): void {
   if (fase.props.length === 0) return;
-  const slot = rec.slot('prop', { color: 0xffffff, roughness: 0.8, metalness: 0.1, vertexColors: true });
   const m = new Matrix4();
   const q = new Quaternion();
   const um = new Vector3(1, 1, 1);
@@ -224,9 +224,20 @@ export function construirProps(fase: LevelDef, g: Grid, rec: Recursos, grupo: Gr
     const defs = fase.props.filter((d) => d.tipo === tipo);
     if (defs.length === 0) continue;
     const modelo = MODELOS[tipo];
-    const malhas = [rec.usar(new InstancedMesh(rec.geo(geometriaDo(modelo.pecas)), undefined, defs.length), slot)];
-    malhas[0].name = `props:${tipo}`;
-    malhas[0].castShadow = true;
+    // Uma instância por superfície: aço, madeira e tecido recebem os mapas adequados.
+    const porSuperficie = new Map<string, Peca[]>();
+    for (const p of modelo.pecas()) {
+      const superficie = superficieDoProp(p[1]);
+      const pecas = porSuperficie.get(superficie) ?? [];
+      pecas.push(p); porSuperficie.set(superficie, pecas);
+    }
+    const malhas = [...porSuperficie.entries()].map(([superficie, pecas]) => {
+      const geo = geometriaDo(() => pecas.map(([g, cor, x, y, z]) => [g, superficie === 'madeira' || superficie === 'papel' ? 0xffffff : cor, x, y, z]));
+      const malha = rec.usar(new InstancedMesh(rec.geo(geo), undefined, defs.length), `prop-${superficie}`);
+      malha.name = `props:${tipo}:${superficie}`;
+      malha.castShadow = true;
+      return malha;
+    });
     if (modelo.emissivas) {
       // partes acesas (tubos da luminária UV): slot emissivo do banco, sem sombra
       const brilho = rec.slot('prop-uv', { color: 0x2a1a40, emissive: 0xa070ff, emissiveIntensity: 0.9 });

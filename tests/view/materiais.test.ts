@@ -1,4 +1,4 @@
-import type { MeshStandardMaterial } from 'three';
+import { MeshStandardMaterial, NearestFilter, Texture } from 'three';
 import { describe, expect, it } from 'vitest';
 import { MaterialBank } from '../../src/engine/materials';
 
@@ -36,5 +36,26 @@ describe('MaterialBank.ajustarBrilho (lâmpadas dos perigos)', () => {
     b.define('b', { emissive: 0xffffff, emissiveIntensity: 1 });
     b.ajustarBrilho('a', 0.1);
     expect((b.get('b') as MeshStandardMaterial).emissiveIntensity).toBe(1);
+  });
+});
+
+describe('mapas compartilhados de superfície', () => {
+  it('filtra cor, relevo, rugosidade e emissivo e libera cada textura uma única vez', () => {
+    const b = new MaterialBank();
+    const cor = new Texture(), relevo = new Texture(), rugosidade = new Texture();
+    const descartadas: Texture[] = [];
+    for (const t of [cor, relevo, rugosidade]) t.addEventListener('dispose', () => descartadas.push(t));
+    const d = { map: cor, bumpMap: relevo, roughnessMap: rugosidade, emissiveMap: cor, bumpScale: .02 };
+    b.define('global', d); b.define('fase', d);
+    const material = b.get('global') as MeshStandardMaterial;
+    expect(material.bumpMap).toBe(relevo);
+    expect(material.roughnessMap).toBe(rugosidade);
+    b.setNearest(true);
+    for (const t of [cor, relevo, rugosidade]) expect(t.magFilter).toBe(NearestFilter);
+    b.removerSlot('fase');
+    expect(descartadas).toHaveLength(0);
+    b.dispose();
+    expect(descartadas).toHaveLength(3);
+    expect(new Set(descartadas).size).toBe(3);
   });
 });

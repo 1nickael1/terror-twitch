@@ -94,6 +94,9 @@ export const FUNCIONARIO: Molde = {
       pos: [0, 0.1, 0], esc: [1, 1, 0.68],
     },
     // gola em V escura e crachá
+    ...[.05, .17, .29, .41].map((y): Peca => ({ osso: 'tronco', geo: esf(.009), cor: 0x766d5d, pos: [0, y, -.15] })),
+    { osso: 'tronco', geo: caixa(.07, .065, .012), cor: 0xb4b2a6, pos: [.1, .26, -.146] },
+    { osso: 'tronco', geo: caixa(.011, .68, .012), cor: 0xb5afa1, pos: [.014, .1, -.16] },
     { osso: 'tronco', geo: () => new ConeGeometry(0.07, 0.2, 3), cor: CALCA, pos: [0, 0.52, -0.125], rot: [Math.PI, 0, 0] },
     { osso: 'tronco', geo: caixa(0.06, 0.08, 0.01), slot: 'ini-olho', pos: [-0.1, 0.36, -0.14], emissivo: true, apaga: false },
     // ombros caídos (bolas do jaleco, baixas)

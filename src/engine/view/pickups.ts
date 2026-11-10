@@ -50,7 +50,7 @@ function formaDe(def: PickupDef): { chave: string; forma: Forma; escala: number 
     case 'vida_g':
       return {
         chave: 'vida', escala: def.tipo === 'vida_g' ? 1.4 : 1,
-        forma: { slot: 'pk-vida', geo: () => unir([caixa(0.36, 0.12, 0.12), caixa(0.12, 0.36, 0.12)]) },
+        forma: { slot: 'pk-vida', geo: () => caixa(0.36, 0.28, 0.14) },
       };
     case 'colete_p':
     case 'colete_g':

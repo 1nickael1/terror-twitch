@@ -13,12 +13,15 @@ import type { Mixer } from './Mixer';
 import { atualizarOuvinte, criarCadeiaPosicional } from './posicional';
 import {
   audivel, contarLacos, lacosDaFase, lacosDePerigo, lamentoDoChefe, LimitadorSons, ocluido, somDoEvento,
-  type LacoPerigo, type LacosDaFase, type NomeSom, type Ouvinte,
+  type LacoPerigo, type LacosDaFase, type NomeSom, type Ouvinte, type PedidoSom,
 } from './regras';
 import * as S from './sintese';
 import * as C from './sinteseCenario';
 import * as CH from './sinteseChefe';
 import * as F2 from './sinteseFase2';
+import { trilha } from './trilha';
+import * as D from './sinteseDoutor';
+import { PassosDoutor } from './passosDoutor';
 
 const SONS: Record<NomeSom, S.Sintese> = {
   tiroPistola: S.tiroPistola, tiroEscopeta: S.tiroEscopeta, tiroSmg: S.tiroSmg, disparoLancador: S.disparoLancador,
@@ -38,6 +41,7 @@ const SONS: Record<NomeSom, S.Sintese> = {
   chefeReanima: F2.chefeReanima, chefeApressa: F2.chefeApressa, chefe049Morto: F2.chefe049Morto,
   uvAviso: F2.uvAviso, uvLiga: F2.uvLiga, vaporAviso: F2.vaporAviso, vaporLiga: F2.vaporLiga,
   perigoRecusa: F2.perigoRecusa,
+  doutorAlerta: D.doutorAlerta, doutorAtaque: D.doutorAtaque, doutorDor: D.doutorDor, doutorMorte: D.doutorMorte, doutorPasso: D.doutorPasso,
 };
 
 /** Laço de cada tipo de perigo de área. */
@@ -55,8 +59,8 @@ function contemId(lista: readonly LacoPerigo[], id: string): boolean {
 const OCLUSAO_LACO = 0.25;
 
 /** ganho do drone com tensão 0 e 1 */
-const DRONE_MIN = 0.03;
-const DRONE_MAX = 0.6;
+const DRONE_MIN = 0.18;
+const DRONE_MAX = 0.7;
 /** suavização do drone (constante de tempo, s) */
 const DRONE_SUAVE = 0.8;
 /** a tensão precisa mudar isto para reagendar o ganho */
@@ -68,6 +72,7 @@ const RAMPA_PERIGO = 0.25;
 
 export class SomDaFase {
   private readonly limitador = new LimitadorSons();
+  private readonly passosDoutor = new PassosDoutor();
   private ctx: AudioContext | null = null;
   private ambiente: S.Laco | null = null;
   private drone: S.Laco | null = null;
@@ -120,6 +125,7 @@ export class SomDaFase {
       atualizarOuvinte(ctx, ouvinte);
       this.limitador.novoQuadro(ctx.currentTime * 1000);
       for (const e of eventos) this.tocarEvento(ctx, world, e, ouvinte);
+      for (const p of this.passosDoutor.atualizar(world)) this.tocarPedido(ctx, world, p, ouvinte);
     } catch {
       /* WebAudio falhou no meio: o jogo segue sem som */
     }
@@ -175,7 +181,7 @@ export class SomDaFase {
 
   private seguirDrone(b: S.Bancada, musica: GainNode, ligado: boolean, rampa?: number): void {
     if (ligado && !this.drone) {
-      this.drone = S.drone(b, musica);
+      this.drone = trilha(b, musica, this.fase.ambiente.somDeFundo === 'hospital');
       this.tensaoAplicada = -1;
     } else if (!ligado && this.drone) {
       this.drone.parar(b.ctx.currentTime, rampa);
@@ -249,6 +255,10 @@ export class SomDaFase {
   private tocarEvento(ctx: AudioContext, world: World, e: SimEvent, ouvinte: Ouvinte): void {
     const p = somDoEvento(e, world);
     if (!p) return;
+    this.tocarPedido(ctx, world, p, ouvinte);
+  }
+
+  private tocarPedido(ctx: AudioContext, world: World, p: PedidoSom, ouvinte: Ouvinte): void {
     let cadeia: AudioNode[] = [];
     if (p.pos) {
       // distância, limitador e só então a visibilidade (a mais cara)

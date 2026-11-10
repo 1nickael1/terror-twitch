@@ -28,15 +28,23 @@ aqui e na tela de créditos no checkpoint da sua fase.
 - Nenhuma imagem da wiki é usada. Em especial, não se usa a imagem nem a escultura associadas
   ao SCP-173, que não são CC, nem a imagem original associada ao SCP-096.
 - As formas dos monstros e dos inimigos, os mapas, as texturas, os shaders, os sons e a
-  sinalização da instalação são originais deste projeto, feitos em código. Não há logos nem
+  sinalização da instalação são originais deste projeto. Os shaders, sons e os demais modelos são feitos em código;
+  as texturas de superfícies e itens são geradas com OpenAI Image Gen, com mapas de relevo e
+  rugosidade derivados em código. Não há logos nem
   marcas de terceiros.
 - "Boomer shooter" descreve só o gênero e as mecânicas. Nenhum asset, mapa, arma, som, HUD ou
   personagem de outro jogo foi recriado.
 
 ## Assets externos
 
-Nenhum. Texturas e modelos são gerados em canvas e geometria; todo o áudio é sintetizado com
-WebAudio. Se um asset externo vier a ser usado, ele será CC0 e listado aqui com a origem.
+O modelo animado do médico de jaleco foi fornecido pelo usuário, criado no Meshy e exportado
+como FBX com animações Mixamo a 60 fps. A versão usada no jogo, seus quatro mapas PBR e o
+inventário das animações estão em `public/models/doutor/`; o arquivo original do usuário foi preservado.
+
+As imagens de superfícies e itens em `public/textures/`
+foram geradas para este projeto com a ferramenta integrada OpenAI Image Gen. Os prompts e
+o catálogo de mapas estão em `public/textures/catalogo.json`. Sinalização legível, decalques e
+texturas de contingência continuam em canvas; os modelos usam geometria e o áudio é sintetizado com WebAudio.
 
 ## Ferramentas
 

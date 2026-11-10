@@ -109,7 +109,13 @@ function disparo(
   const lp = filtro(ctx, er, 'lowpass', o.corte * 1.8);
   const bp = filtro(ctx, lp, 'bandpass', variar(o.corte), o.q);
   const et = envelope(ctx, destino, t, 0.002, o.ganhoTom, o.quedaTom);
-  return [ruido(b, bp, t, o.quedaRuido + 0.05), tom(b, et, 'sine', variar(o.f0, 0.05), o.f1, t, o.quedaTom)];
+  const estalo = envelope(ctx, destino, t, .001, .12, .018);
+  const mecanismo = envelope(ctx, destino, t + .045, .001, .045, .025);
+  return [
+    ruido(b, bp, t, o.quedaRuido + 0.05), tom(b, et, 'sine', variar(o.f0, 0.05), o.f1, t, o.quedaTom),
+    ruido(b, filtro(ctx, estalo, 'highpass', 3200), t, .025),
+    tom(b, mecanismo, 'triangle', 1250, 420, t + .045, .03),
+  ];
 }
 
 // ---------- armas ----------
@@ -169,7 +175,12 @@ export const passo: Sintese = (b, d, t) => {
   const { ctx } = b;
   const er = envelope(ctx, d, t, 0.003, 0.13, 0.07);
   const et = envelope(ctx, d, t, 0.003, 0.07, 0.06);
-  return [ruido(b, filtro(ctx, er, 'lowpass', variar(380, 0.2)), t, 0.09), tom(b, et, 'sine', variar(75), 48, t, 0.06)];
+  const sola = envelope(ctx, d, t + .012, .003, .035, .07);
+  return [
+    ruido(b, filtro(ctx, er, 'lowpass', variar(380, 0.2)), t, 0.09),
+    tom(b, et, 'sine', variar(75), 48, t, 0.06),
+    ruido(b, filtro(ctx, sola, 'bandpass', variar(1400, .3), .65), t + .012, .085),
+  ];
 };
 
 export const pulo: Sintese = (b, d, t) => {

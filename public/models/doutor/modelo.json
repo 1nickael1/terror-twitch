@@ -1,0 +1,150 @@
+{
+  "origem": "Modelo criado pelo usuário no Meshy; FBX animado Mixamo 60 fps.",
+  "usoNoJogo": {
+    "tipo": "funcionario",
+    "altura": 1.8,
+    "caminhada": "Unsteady_Walk",
+    "corrida": "Run_02",
+    "ataque": "Avanço do tronco e fechamento dos dois braços, sincronizado ao preparo da IA."
+  },
+  "arquivoOriginal": "Meshy_AI_The_T_Pose_Doctor_20261110_animated_mixamo_60fps_All_animation.fbx",
+  "malhas": 1,
+  "vertices": 30879,
+  "triangulos": 10293,
+  "ossos": [
+    "mixamorigHips",
+    "mixamorigSpine",
+    "mixamorigSpine1",
+    "mixamorigSpine2",
+    "mixamorigNeck",
+    "mixamorigHead",
+    "mixamorigHeadTop_End",
+    "headfront",
+    "mixamorigLeftShoulder",
+    "mixamorigLeftArm",
+    "mixamorigLeftForeArm",
+    "mixamorigLeftHand",
+    "mixamorigLeftHandThumb1",
+    "mixamorigLeftHandThumb2",
+    "mixamorigLeftHandThumb3",
+    "mixamorigLeftHandThumb4",
+    "mixamorigLeftHandPinky1",
+    "mixamorigLeftHandPinky2",
+    "mixamorigLeftHandPinky3",
+    "mixamorigLeftHandPinky4",
+    "mixamorigLeftHandRing1",
+    "mixamorigLeftHandRing2",
+    "mixamorigLeftHandRing3",
+    "mixamorigLeftHandRing4",
+    "mixamorigLeftHandIndex1",
+    "mixamorigLeftHandIndex2",
+    "mixamorigLeftHandIndex3",
+    "mixamorigLeftHandIndex4",
+    "mixamorigLeftHandMiddle1",
+    "mixamorigLeftHandMiddle2",
+    "mixamorigLeftHandMiddle3",
+    "mixamorigLeftHandMiddle4",
+    "mixamorigRightShoulder",
+    "mixamorigRightArm",
+    "mixamorigRightForeArm",
+    "mixamorigRightHand",
+    "mixamorigRightHandThumb1",
+    "mixamorigRightHandThumb2",
+    "mixamorigRightHandThumb3",
+    "mixamorigRightHandThumb4",
+    "mixamorigRightHandPinky1",
+    "mixamorigRightHandPinky2",
+    "mixamorigRightHandPinky3",
+    "mixamorigRightHandPinky4",
+    "mixamorigRightHandIndex1",
+    "mixamorigRightHandIndex2",
+    "mixamorigRightHandIndex3",
+    "mixamorigRightHandIndex4",
+    "mixamorigRightHandRing1",
+    "mixamorigRightHandRing2",
+    "mixamorigRightHandRing3",
+    "mixamorigRightHandRing4",
+    "mixamorigRightHandMiddle1",
+    "mixamorigRightHandMiddle2",
+    "mixamorigRightHandMiddle3",
+    "mixamorigRightHandMiddle4",
+    "mixamorigLeftUpLeg",
+    "mixamorigLeftLeg",
+    "mixamorigLeftFoot",
+    "mixamorigLeftToeBase",
+    "mixamorigLeftToe_End",
+    "mixamorigRightUpLeg",
+    "mixamorigRightLeg",
+    "mixamorigRightFoot",
+    "mixamorigRightToeBase",
+    "mixamorigRightToe_End"
+  ],
+  "caixa": {
+    "min": [
+      -0.8810243528241911,
+      -8.812028889675436e-8,
+      -0.15252505139319847
+    ],
+    "max": [
+      0.8810246099287128,
+      1.6999999304937907,
+      0.15252438185844053
+    ],
+    "tamanho": [
+      1.762048962752904,
+      1.7000000186140796,
+      0.305049433251639
+    ]
+  },
+  "animacoes": [
+    {
+      "nome": "Running",
+      "duracao": 0.6333333253860474,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Walking",
+      "duracao": 1.0333333015441895,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Dead",
+      "duracao": 2.9666666984558105,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Gunshot_Reaction",
+      "duracao": 3,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Idle_02",
+      "duracao": 1.8666666746139526,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Run_02",
+      "duracao": 0.699999988079071,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Unsteady_Walk",
+      "duracao": 2.9666666984558105,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    }
+  ],
+  "mapas": {
+    "albedo": "/models/doutor/albedo.webp",
+    "normal": "/models/doutor/normal.webp",
+    "rugosidade": "/models/doutor/rugosidade.webp",
+    "metalicidade": "/models/doutor/metalicidade.webp"
+  },
+  "bytesModelo": 4131896
+}

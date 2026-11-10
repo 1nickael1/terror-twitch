@@ -17,7 +17,6 @@ import { avancarFechamento, brilhoAviso, COR_INDICADOR, estadoIndicador, type Es
 import { colocacao } from './objetos';
 import { indicesDoTipo } from './perigosLogica';
 import type { Recursos } from './recursos';
-import { texturaComporta } from './texturasCenario';
 
 /** folga do painel para dentro da área (não encosta nas paredes vizinhas) */
 const FOLGA = 0.03;
@@ -88,7 +87,7 @@ export class ComportasView {
     const indices = indicesDoTipo(defs, 'comporta');
     this.vistas = defs.map(() => null);
     if (indices.length === 0) return;
-    const slot = rec.slot('comporta', { map: rec.tex(texturaComporta()), roughness: 0.45, metalness: 0.55 });
+    const slot = 'comporta';
     const lampadaGeo = rec.geo(new BoxGeometry(0.22, 0.1, 0.1));
 
     for (const indice of indices) {

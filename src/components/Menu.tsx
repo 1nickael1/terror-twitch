@@ -11,6 +11,7 @@ import { fasesDaSelecao } from './selecao';
 import css from './menus.module.css';
 import { useNavegacaoMenu } from './navegacao';
 import { Opcoes } from './Opcoes';
+import { Controles } from './Controles';
 
 export interface MenuProps {
   progresso: Progresso;
@@ -19,7 +20,7 @@ export interface MenuProps {
   definirOpcoes: (p: Partial<OpcoesT>) => void;
 }
 
-type Vista = 'raiz' | 'fases' | 'opcoes' | 'creditos';
+type Vista = 'raiz' | 'fases' | 'opcoes' | 'creditos' | 'controles';
 
 function Raiz({ progresso, comando, ir }: { progresso: Progresso; comando: MenuProps['comando']; ir: (v: Vista) => void }) {
   const ref = useNavegacaoMenu<HTMLUListElement>();
@@ -68,16 +69,26 @@ export function Menu({ progresso, opcoes, comando, definirOpcoes }: MenuProps) {
   const raiz = () => setVista('raiz');
   if (vista === 'opcoes') return <Opcoes opcoes={opcoes} definir={definirOpcoes} voltar={raiz} />;
   if (vista === 'creditos') return <Creditos voltar={raiz} />;
+  if (vista === 'controles') return <Controles voltar={raiz} />;
   return (
     <div className={`${css.tela} ${css.titulo}`} role="dialog" aria-modal="true" aria-labelledby={titulo}>
+      <div className={css.cabecalhoTerminal} aria-hidden="true"><span>SCPT / REDE INTERNA</span><span className={css.sinal}>● CONEXÃO INSTÁVEL</span></div>
       <div className={`${css.painel} ${css.semMoldura}`}>
-        <p className={css.rotulo}>Terminal de acesso · Área de contenção</p>
-        <h1 id={titulo} className={css.marca}>SCP Terror</h1>
-        <span className={css.sub}>demo</span>
+        <p className={css.rotulo}>Protocolo de emergência / 07</p>
+        <h1 id={titulo} className={css.marca}><span>SCP</span><span className={css.marcaTerror}>TERROR</span></h1>
+        <span className={css.sub}>Falha de contenção</span>
+        <p className={css.sinopse}>O isolamento falhou.<br />Encontre uma saída. Evite o que ficou.</p>
         {vista === 'raiz'
           ? <Raiz progresso={progresso} comando={comando} ir={setVista} />
           : <Fases progresso={progresso} comando={comando} voltar={raiz} />}
       </div>
+      <aside className={css.transmissao} aria-label="Estado da instalação">
+        <span className={css.rotulo}>Vigilância / sinal ao vivo</span>
+        <div className={css.selo} aria-hidden="true">!</div>
+        <p>CONTENÇÃO<br /><strong>COMPROMETIDA</strong></p>
+        <span className={css.codigo}>ACESSO RESTRITO · NÍVEL 04</span>
+      </aside>
+      <footer className={css.rodapeTerminal}><span><kbd>↑</kbd> <kbd>↓</kbd> navegar <kbd>Enter</kbd> selecionar</span><button type="button" className={css.ajuda} onClick={() => setVista('controles')}>Controles / manual ↗</button><span>DEMO / 02 SETORES</span></footer>
     </div>
   );
 }

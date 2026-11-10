@@ -58,6 +58,14 @@ export const ENTIDADE096: Molde = {
     { osso: 'tronco', geo: () => new CylinderGeometry(0.068, 0.064, 0.22, 8), cor: PELE, pos: [0, 0.17, 0], esc: [1, 1, 0.7] },
     { osso: 'tronco', geo: () => new CylinderGeometry(0.12, 0.08, 0.27, 9), cor: PELE, pos: [0, 0.39, 0], esc: [1, 1, 0.62] },
     // vértebras saltadas nas costas (o que o jogador vê com ele de costas)
+    // Costelas, clavículas e tendões em relevo; permanecem na malha unida do tronco.
+    ...[-1, 1].flatMap((lado) => [
+      ...[0, 1, 2, 3, 4].map((i): Peca => ({
+        osso: 'tronco', geo: cap(.009, .065 - i * .004), cor: 0xbbb7ad,
+        pos: [lado * (.049 - i * .003), .46 - i * .034, -.057], rot: [0, 0, lado * 1.25],
+      })),
+      { osso: 'tronco', geo: cap(.012, .10), cor: PELE_MEMBRO, pos: [lado * .064, .51, -.045], rot: [0, 0, lado * 1.4] } as Peca,
+    ]),
     { osso: 'tronco', geo: esf(0.02), cor: PELE, pos: [0, 0.28, 0.065] },
     { osso: 'tronco', geo: esf(0.02), cor: PELE, pos: [0, 0.37, 0.072] },
     { osso: 'tronco', geo: esf(0.02), cor: PELE, pos: [0, 0.46, 0.07] },
@@ -124,6 +132,12 @@ export const ENTIDADE049: Molde = {
     { osso: 'pernaD', geo: caixa(0.1, 0.06, 0.25), cor: CAPA, pos: [0, -0.92, -0.05] },
     // manto: dos ombros aos tornozelos, abrindo em sino; cordão na cintura
     { osso: 'tronco', geo: () => new CylinderGeometry(0.2, 0.37, 1.48, 14), cor: MANTO, pos: [0, -0.12, 0], esc: [1, 1, 0.8] },
+    // Pregas verticais do tecido, fechos envelhecidos e suturas na máscara.
+    ...[-.21, -.105, 0, .105, .21].map((x): Peca => ({
+      osso: 'tronco', geo: cap(.012, .94), cor: 0x292630,
+      pos: [x, -.28, -.22 + Math.abs(x) * .13], rot: [0, 0, x * -.22],
+    })),
+    ...[.28, .39, .50].map((y): Peca => ({ osso: 'tronco', geo: esf(.014), cor: LATAO, pos: [0, y, -.205] })),
     { osso: 'tronco', geo: () => new CylinderGeometry(0.27, 0.27, 0.035, 14), cor: CORDAO, pos: [0, 0.06, 0], esc: [1, 1, 0.8] },
     { osso: 'tronco', geo: cap(0.012, 0.32), cor: CORDAO, pos: [-0.08, -0.13, -0.215], rot: [0.05, 0, 0.08] },
     // capa curta sobre os ombros e gola alta
@@ -133,6 +147,9 @@ export const ENTIDADE049: Molde = {
     { osso: 'cabeca', geo: () => new SphereGeometry(0.16, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), cor: CAPA, pos: [0, 0.12, 0.025], esc: [1, 1.12, 1.12] },
     { osso: 'cabeca', geo: esf(0.11), cor: MARFIM, pos: [0, 0.1, -0.035], esc: [0.86, 1.05, 0.72] },
     { osso: 'cabeca', geo: () => new ConeGeometry(0.048, 0.27, 10), cor: BICO, pos: [0, 0.05, -0.19], rot: [-Math.PI / 2 - 0.32, 0, 0] },
+    ...[-1, 1].flatMap((lado) => [0, 1, 2].map((i): Peca => ({
+      osso: 'cabeca', geo: esf(.004), cor: 0x5e5343, pos: [lado * .025, .08 - i * .013, -.16 - i * .025],
+    }))),
     { osso: 'cabeca', geo: caixa(0.12, 0.012, 0.02), cor: CAPA, pos: [0, 0.165, -0.1] },          // costura da testa
     { osso: 'cabeca', geo: esf(0.033), cor: CAPA, pos: [-0.045, 0.135, -0.095] },               // aros das lentes
     { osso: 'cabeca', geo: esf(0.033), cor: CAPA, pos: [0.045, 0.135, -0.095] },

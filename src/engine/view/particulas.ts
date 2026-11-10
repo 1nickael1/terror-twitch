@@ -28,6 +28,8 @@ const FAISCA: Emissao = { n: 7, cor: [1, 0.72, 0.3], alfa: 1, tamanho: 0.05, cre
 const RESPINGO: Emissao = { n: 9, cor: [0.28, 0.02, 0.02], alfa: 0.95, tamanho: 0.08, cresce: 0, vel: [0.8, 2.4], subida: 1, vida: [0.5, 0.9], gravidade: 9, arrasto: 1.5, espalha: 0.06 };
 const FUMACA: Emissao = { n: 40, cor: [0.42, 0.5, 0.38], alfa: 0.45, tamanho: 0.5, cresce: 0.5, vel: [0.1, 0.7], subida: 0.6, vida: [1.4, 2.6], gravidade: -0.15, arrasto: 1.2, espalha: 1.2 };
 const POEIRA: Emissao = { n: 14, cor: [0.5, 0.47, 0.42], alfa: 0.45, tamanho: 0.14, cresce: 0.2, vel: [0.6, 1.4], subida: 0.15, vida: [0.35, 0.6], gravidade: 0, arrasto: 3, espalha: 0.2, plano: true };
+const POEIRA_IMPACTO: Emissao = { n: 5, cor: [.48, .49, .45], alfa: .24, tamanho: .09, cresce: .35, vel: [.15, .65], subida: .25, vida: [.35, .75], gravidade: -.08, arrasto: 2.5, espalha: .08 };
+const BRASAS: Emissao = { ...FAISCA, n: 18, cor: [1, .38, .08], tamanho: .065, vida: [.3, .8], vel: [2, 6], subida: 2.5 };
 // frasco quebrando: cacos de vidro claros e rápidos, e o líquido amarelo-esverdeado espirrando baixo
 const CACOS: Emissao = { n: 10, cor: [0.85, 0.92, 0.9], alfa: 0.9, tamanho: 0.035, cresce: 0, vel: [1.8, 4.2], subida: 1.2, vida: [0.25, 0.5], gravidade: 9, arrasto: 1, espalha: 0.05 };
 const LIQUIDO: Emissao = { n: 16, cor: [0.55, 0.62, 0.16], alfa: 0.85, tamanho: 0.09, cresce: 0.05, vel: [0.8, 2.6], subida: 1.4, vida: [0.45, 0.85], gravidade: 9, arrasto: 1.6, espalha: 0.12 };
@@ -93,8 +95,15 @@ export class ParticulasView {
 
   sincronizar(world: World, eventos: readonly SimEvent[], dt: number): void {
     for (const e of eventos) {
-      if (e.tipo === 'impacto') this.emitir(world, this.recuar(e.pos), e.y, e.em === 'parede' ? FAISCA : RESPINGO);
-      else if (e.tipo === 'explosao') this.emitir(world, e.pos, alturaPiso(world.grid, e.pos) + 0.5, FUMACA);
+      if (e.tipo === 'impacto') {
+        this.emitir(world, this.recuar(e.pos), e.y, e.em === 'parede' ? FAISCA : RESPINGO);
+        if (e.em === 'parede') this.emitir(world, this.recuar(e.pos), e.y, POEIRA_IMPACTO);
+      }
+      else if (e.tipo === 'explosao') {
+        const y = alturaPiso(world.grid, e.pos) + .5;
+        this.emitir(world, e.pos, y, FUMACA);
+        this.emitir(world, e.pos, y, BRASAS);
+      }
       else if (e.tipo === 'pouso') this.emitir(world, world.jogador.pos, world.jogador.y + 0.05, POEIRA);
       else if (e.tipo === 'frasco_quebra') {
         const p = this.recuar(e.pos);

@@ -76,10 +76,16 @@ export function pintar(g: BufferGeometry, hex: number): BufferGeometry {
   const c = new Color().setHex(hex);
   const n = g.getAttribute('position').count;
   const cores = new Float32Array(n * 3);
+  const pos = g.getAttribute('position');
+  const normal = g.getAttribute('normal');
   for (let i = 0; i < n; i++) {
-    cores[i * 3] = c.r;
-    cores[i * 3 + 1] = c.g;
-    cores[i * 3 + 2] = c.b;
+    // Pigmentação irregular e oclusão suave nas faces voltadas para baixo.
+    // Calculado uma vez ao montar o molde, sem textura ou draw call adicional.
+    const mancha = Math.sin(pos.getX(i) * 73 + pos.getY(i) * 41 + pos.getZ(i) * 59);
+    const k = .91 + .055 * mancha + .035 * (normal?.getY(i) ?? 0);
+    cores[i * 3] = c.r * k;
+    cores[i * 3 + 1] = c.g * k;
+    cores[i * 3 + 2] = c.b * k;
   }
   g.setAttribute('color', new Float32BufferAttribute(cores, 3));
   return g;

@@ -1,0 +1,271 @@
+{
+  "descricao": "Texturas originais. Cor gerada com IA; relevo e rugosidade derivados da luminância.",
+  "texturas": [
+    {
+      "id": "concreto",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "Generate ONE production-ready square 1024x1024 seamless tiling albedo texture for a first-person survival horror videogame set in a derelict 1990s underground containment research facility. Photorealistic material scan, orthographic front-on, surface fills entire image edge to edge, uniform diffuse neutral lighting, no shadows, no perspective, no objects, no border, no labels, no watermark. Muted believable colors, detailed microstructure, medium value suitable for realtime lighting. Perfectly matching opposite edges. Aged poured concrete wall, cool gray with a faint green cast, subtle formwork joints, pores, hairline cracks, small anchor pits, old humidity streaks, patchy chalky mineral deposits. Restrained grime, no graffiti or painted markings.",
+      "repetivel": true,
+      "resolucao": 1024,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/concreto/albedo.webp",
+        "relevo": "/textures/concreto/relevo.webp",
+        "rugosidade": "/textures/concreto/rugosidade.webp"
+      },
+      "bytes": 428274
+    },
+    {
+      "id": "azulejo",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "Generate ONE production-ready square 1024x1024 seamless tiling albedo texture for a first-person survival horror videogame set in a derelict 1990s underground containment research facility. Photorealistic material scan, orthographic front-on, surface fills entire image edge to edge, uniform diffuse neutral lighting, no shadows, no perspective, no objects, no border, no labels, no watermark. Muted believable colors, detailed microstructure, medium value suitable for realtime lighting. Perfectly matching opposite edges. Old hospital wall made from a regular grid of muted sage green glazed ceramic square tiles with thin dirty ivory grout. Exactly four complete tiles per axis. Fine glaze crazing, a few tiny chipped edges exposing ceramic, restrained mildew around grout. Flat smooth glaze, no baked reflections.",
+      "repetivel": true,
+      "resolucao": 1024,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/azulejo/albedo.webp",
+        "relevo": "/textures/azulejo/relevo.webp",
+        "rugosidade": "/textures/azulejo/rugosidade.webp"
+      },
+      "bytes": 260662
+    },
+    {
+      "id": "piso",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "Generate ONE production-ready square 1024x1024 seamless tiling albedo texture for a first-person survival horror videogame set in a derelict 1990s underground containment research facility. Photorealistic material scan, orthographic front-on, surface fills entire image edge to edge, uniform diffuse neutral lighting, no shadows, no perspective, no objects, no border, no labels, no watermark. Muted believable colors, detailed microstructure, medium value suitable for realtime lighting. Perfectly matching opposite edges. Abandoned facility floor made from a regular grid of four by four medium gray green ceramic stone floor tiles, narrow dark grout. Scuffed matte tiles, irregular wear, fine shoe scuffs and subtle dirt. No puddles, no dramatic stains, no light reflections.",
+      "repetivel": true,
+      "resolucao": 1024,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/piso/albedo.webp",
+        "relevo": "/textures/piso/relevo.webp",
+        "rugosidade": "/textures/piso/rugosidade.webp"
+      },
+      "bytes": 323554
+    },
+    {
+      "id": "teto",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "Generate ONE production-ready square 1024x1024 seamless tiling albedo texture for a first-person survival horror videogame set in a derelict 1990s underground containment research facility. Photorealistic material scan, orthographic front-on, surface fills entire image edge to edge, uniform diffuse neutral lighting, no shadows, no perspective, no objects, no border, no labels, no watermark. Muted believable colors, detailed microstructure, medium value suitable for realtime lighting. Perfectly matching opposite edges. Acoustic suspended ceiling tiles, dirty desaturated warm gray fibrous acoustic panels in a thin dull metal grid, exactly two by two full panels. Tiny perforations, aged fibrous surface, faint humidity and dust, no lights or vents.",
+      "repetivel": true,
+      "resolucao": 1024,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/teto/albedo.webp",
+        "relevo": "/textures/teto/relevo.webp",
+        "rugosidade": "/textures/teto/rugosidade.webp"
+      },
+      "bytes": 452424
+    },
+    {
+      "id": "porta",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "undefinedFlat square steel containment door panel albedo, neutral gray painted steel, inset rectangular reinforcement panel, recessed seams, corner fasteners, worn edges and subtle scratches. Small amber and black safety band along bottom. No handles, windows, lettering, text or symbols. Orthographic panel face, absolutely no 3D perspective.",
+      "repetivel": false,
+      "resolucao": 1024,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/porta/albedo.webp",
+        "relevo": "/textures/porta/relevo.webp",
+        "rugosidade": "/textures/porta/rugosidade.webp"
+      },
+      "bytes": 243968
+    },
+    {
+      "id": "comporta",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "undefinedSquare heavy industrial blast shutter face, dark cool gray steel sheet with exactly four vertical reinforcement strips, riveted joints, subtle old rust and worn paint. Amber and black diagonal hazard strips across bottom 15 percent and thin top edge. Flat orthographic face, no objects, perspective, text or logo.",
+      "repetivel": false,
+      "resolucao": 1024,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/comporta/albedo.webp",
+        "relevo": "/textures/comporta/relevo.webp",
+        "rugosidade": "/textures/comporta/rugosidade.webp"
+      },
+      "bytes": 323720
+    },
+    {
+      "id": "metal-pintado",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "undefinedSeamless neutral medium gray painted industrial steel material, finely pebbled powder coating, fine scratches, restrained edge-free chipped paint flecks exposing gray steel, a few oxidized freckles. No seams, bolts, panels or markings. Color neutral enough to tint on different objects.",
+      "repetivel": true,
+      "resolucao": 512,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/metal-pintado/albedo.webp",
+        "relevo": "/textures/metal-pintado/relevo.webp",
+        "rugosidade": "/textures/metal-pintado/rugosidade.webp"
+      },
+      "bytes": 99610
+    },
+    {
+      "id": "aco",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "undefinedSeamless satin stainless steel material for hospital carts, autoclaves, pipes and handles. Medium light neutral silver gray, very fine subtle brushed grain, microscopic abrasion, a few irregular faint water spots. No objects, no harsh bright reflections, no visible directional lighting.",
+      "repetivel": true,
+      "resolucao": 512,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/aco/albedo.webp",
+        "relevo": "/textures/aco/relevo.webp",
+        "rugosidade": "/textures/aco/rugosidade.webp"
+      },
+      "bytes": 67098
+    },
+    {
+      "id": "madeira",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "undefinedSeamless aged medium-light neutral brown wood veneer material for institutional desks and wooden storage crates. Straight close wood grain, scratched varnish, subtle scuffs and tiny dents, no planks or joints, no text, no objects. Understated utilitarian finish.",
+      "repetivel": true,
+      "resolucao": 512,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/madeira/albedo.webp",
+        "relevo": "/textures/madeira/relevo.webp",
+        "rugosidade": "/textures/madeira/rugosidade.webp"
+      },
+      "bytes": 123234
+    },
+    {
+      "id": "tecido",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "undefinedSeamless pale neutral gray fabric material for hospital curtains, stretcher bedding and padded chairs, fine visible crosswoven cotton fibers, small irregular worn patches and faint stains. Absolutely flat, no folds, draping, seams or objects; neutral grayscale color intended for tinting.",
+      "repetivel": true,
+      "resolucao": 512,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/tecido/albedo.webp",
+        "relevo": "/textures/tecido/relevo.webp",
+        "rugosidade": "/textures/tecido/rugosidade.webp"
+      },
+      "bytes": 159482
+    },
+    {
+      "id": "borracha",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "undefinedSeamless medium gray vulcanized rubber surface with fine diamond stipple texture, worn but intact, slight irregular abrasion and grease. Neutral grayscale for tinting black weapon grips, boots and small equipment. No object shape or logos.",
+      "repetivel": true,
+      "resolucao": 512,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/borracha/albedo.webp",
+        "relevo": "/textures/borracha/relevo.webp",
+        "rugosidade": "/textures/borracha/rugosidade.webp"
+      },
+      "bytes": 185688
+    },
+    {
+      "id": "papel",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "Generate ONE square 1024x1024 production-ready albedo texture for a small 3D game pickup in a realistic survival horror game set in a derelict 1990s research facility. Flat orthographic front face only filling the complete image edge to edge. No perspective, object mockup, cast shadow, scenery, outside border or watermark. Crisp readable graphic shapes and detailed restrained wear. Neutral diffuse lighting, not dramatic lighting. Old warm ivory paper document surface, creased fibers, slight yellowing. A generic redacted internal report layout: tiny illegible charcoal type lines, black redaction bars, a few thin ruled fields and faded gray rectangular stamp. No legible words, no logos, no readable text. Entire image is paper.",
+      "repetivel": false,
+      "resolucao": 512,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/papel/albedo.webp",
+        "relevo": "/textures/papel/relevo.webp",
+        "rugosidade": "/textures/papel/rugosidade.webp"
+      },
+      "bytes": 132694
+    },
+    {
+      "id": "tela",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "Generate ONE square 1024x1024 production-ready albedo texture for a small 3D game pickup in a realistic survival horror game set in a derelict 1990s research facility. Flat orthographic front face only filling the complete image edge to edge. No perspective, object mockup, cast shadow, scenery, outside border or watermark. Crisp readable graphic shapes and detailed restrained wear. Neutral diffuse lighting, not dramatic lighting. A CRT computer terminal screen texture, dark charcoal green background with delicate green monochrome technical schematic lines, status bars, segmented column layouts, small signal trace, scanlines. No actual words, no recognizable logos, no monitor bezel. Entire image is flat screen display. Restrained glow, high legibility.",
+      "repetivel": false,
+      "resolucao": 512,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/tela/albedo.webp",
+        "relevo": "/textures/tela/relevo.webp",
+        "rugosidade": "/textures/tela/rugosidade.webp"
+      },
+      "bytes": 107652
+    },
+    {
+      "id": "vida",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "Generate ONE square 1024x1024 production-ready albedo texture for a small 3D game pickup in a realistic survival horror game set in a derelict 1990s research facility. Flat orthographic front face only filling the complete image edge to edge. No perspective, object mockup, cast shadow, scenery, outside border or watermark. Crisp readable graphic shapes and detailed restrained wear. Neutral diffuse lighting, not dramatic lighting. Front surface of a field medical supply case. Muted ivory hard plastic, large centered simple emerald green medical plus sign, thin green stripe along lower edge, subtle molded seam near top, restrained scratches and grime. No text, no logos, no handle or depth.",
+      "repetivel": false,
+      "resolucao": 512,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/vida/albedo.webp",
+        "relevo": "/textures/vida/relevo.webp",
+        "rugosidade": "/textures/vida/rugosidade.webp"
+      },
+      "bytes": 82232
+    },
+    {
+      "id": "colete",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "Generate ONE square 1024x1024 production-ready albedo texture for a small 3D game pickup in a realistic survival horror game set in a derelict 1990s research facility. Flat orthographic front face only filling the complete image edge to edge. No perspective, object mockup, cast shadow, scenery, outside border or watermark. Crisp readable graphic shapes and detailed restrained wear. Neutral diffuse lighting, not dramatic lighting. Surface of blue-gray tactical ballistic vest front, woven fabric carrier with orderly stitched webbing strips, two flat stitched pouches, black binding along edges, subtle wear. Flat surface only, no human, no neck opening silhouette, no background, no text. All image filled by fabric.",
+      "repetivel": false,
+      "resolucao": 512,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/colete/albedo.webp",
+        "relevo": "/textures/colete/relevo.webp",
+        "rugosidade": "/textures/colete/rugosidade.webp"
+      },
+      "bytes": 147162
+    },
+    {
+      "id": "municao",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "Generate ONE square 1024x1024 production-ready albedo texture for a small 3D game pickup in a realistic survival horror game set in a derelict 1990s research facility. Flat orthographic front face only filling the complete image edge to edge. No perspective, object mockup, cast shadow, scenery, outside border or watermark. Crisp readable graphic shapes and detailed restrained wear. Neutral diffuse lighting, not dramatic lighting. Front packaging face for an ammunition supply box, neutral medium light gray kraft paperboard with a dark label panel, small light cartridge silhouettes arranged in a row, sparse thin printed barcode, restrained stains and worn fibers. No legible words or numerals, no logos. Neutral grayscale intended to tint gold, red, or olive in game.",
+      "repetivel": false,
+      "resolucao": 512,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/municao/albedo.webp",
+        "relevo": "/textures/municao/relevo.webp",
+        "rugosidade": "/textures/municao/rugosidade.webp"
+      },
+      "bytes": 134150
+    },
+    {
+      "id": "cartao",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "Generate ONE square 1024x1024 production-ready albedo texture for a small 3D game pickup in a realistic survival horror game set in a derelict 1990s research facility. Flat orthographic front face only filling the complete image edge to edge. No perspective, object mockup, cast shadow, scenery, outside border or watermark. Crisp readable graphic shapes and detailed restrained wear. Neutral diffuse lighting, not dramatic lighting. Front texture for a secure research facility plastic access keycard, ivory gray plastic, dark top band, minimalist generic six-sided emblem at upper left, small gold rectangular chip left middle, subtle security guilloche pattern, thin dark barcode at bottom, horizontal gray identity placeholder lines. No words, numbers, personal names or photo. No margin, rounded outside silhouette or scene.",
+      "repetivel": false,
+      "resolucao": 512,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/cartao/albedo.webp",
+        "relevo": "/textures/cartao/relevo.webp",
+        "rugosidade": "/textures/cartao/rugosidade.webp"
+      },
+      "bytes": 107944
+    },
+    {
+      "id": "capsula",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "A single seamless tileable material texture, square aspect ratio. Light neutral gray engineered ceramic-polymer surface, shallow fine manufactured parallel ridges, tiny recessed circuit traces and regular small contact pads, restrained everyday scuffs. Flat orthographic material scan for a 3D modeling material library. Entire image is this surface, no objects, labels, lighting gradients, shadows or perspective. Uniform diffuse illumination. The base color will be tinted turquoise in a 3D renderer.",
+      "repetivel": true,
+      "resolucao": 512,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/capsula/albedo.webp",
+        "relevo": "/textures/capsula/relevo.webp",
+        "rugosidade": "/textures/capsula/rugosidade.webp"
+      },
+      "bytes": 59270
+    },
+    {
+      "id": "vidro",
+      "ferramenta": "OpenAI Image Gen (integrado)",
+      "prompt": "A single seamless tileable material texture, square aspect ratio. Almost white neutral gray glass cleaning residue and fine surface dust. Very subtle fine wipe streaks, tiny dust flecks and faint scratches against a flat nearly white background. No reflections, glass frame or edges, fractures, objects, scenery, shadows or lighting gradients. Orthographic detail map for a 3D architectural glass material. Very low contrast.",
+      "repetivel": true,
+      "resolucao": 512,
+      "resolucaoDados": 256,
+      "mapas": {
+        "albedo": "/textures/vidro/albedo.webp",
+        "relevo": "/textures/vidro/relevo.webp",
+        "rugosidade": "/textures/vidro/rugosidade.webp"
+      },
+      "bytes": 21240
+    }
+  ]
+}

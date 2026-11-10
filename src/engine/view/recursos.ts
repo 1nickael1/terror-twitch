@@ -41,8 +41,8 @@ export class Recursos {
   }
 
   /** Malha com material do banco (troca lambert/standard junto com o resto). */
-  usar<T extends Mesh>(mesh: T, slot: string): T {
-    this.geometrias.add(mesh.geometry);
+  usar<T extends Mesh>(mesh: T, slot: string, geometriaCompartilhada = false): T {
+    if (!geometriaCompartilhada) this.geometrias.add(mesh.geometry);
     this.doBanco.add(mesh);
     if (mesh instanceof InstancedMesh) this.objetos.add(mesh);
     return this.bank.use(mesh, slot);

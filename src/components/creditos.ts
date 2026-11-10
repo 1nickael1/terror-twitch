@@ -20,6 +20,7 @@ export const CREDITOS = {
   } satisfies Link,
   frases: [
     'O conteúdo da SCP Foundation é licenciado sob CC BY-SA 3.0. Elementos derivados deste projeto seguem a mesma licença.',
-    'Os inimigos, os mapas, as texturas, os shaders e os sons são originais deste projeto, feitos em código.',
+    'Os inimigos, os mapas, os shaders e os sons são originais deste projeto. As texturas de superfícies e itens foram geradas com OpenAI Image Gen.',
+    'O modelo do médico de jaleco foi criado e fornecido pelo usuário no Meshy, com animações Mixamo a 60 fps.',
   ],
 } as const;

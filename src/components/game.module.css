@@ -108,3 +108,28 @@
   /* abaixo dos cartões e dos textos de canto dos filtros (topo em 64px, ~18px de altura) */
   .chefe { top: 92px; }
 }
+
+/* Instrumentos discretos, com leitura de emergência. */
+.hud::before { content: ''; position:absolute; inset:0; background:linear-gradient(0deg,#020708a6,transparent 22%,transparent 90%,#02070833); pointer-events:none; }
+.status { gap:12px; bottom:26px; left:28px; }
+.medidor { min-width:112px; padding:12px 14px; background:linear-gradient(110deg,#0a141bd9,#0a141b33); border:1px solid #c2dbd31a; border-top:2px solid currentColor; gap:7px; }
+.medidorNome,.armaNome { font-size:9px; letter-spacing:.18em; }
+.medidorValor,.municao { font:500 36px/1 ui-monospace,Consolas,monospace; letter-spacing:-.06em; }
+.vida { color:#d5e5d5; } .critico { color:#ff9984; background:#401b1bd9; } .colete { color:#8db7cc; }
+.barra { height:3px; background:#c2dbd31a; }
+.armamento { bottom:26px; right:28px; border-right:2px solid #d5b880; padding:12px 16px; background:linear-gradient(270deg,#0a141bd9,#0a141b33); gap:7px; }
+.slot { width:26px; height:23px; font-size:10px; }
+.slotAtual { background:#d5b88026; border-color:#d5b880; color:#ffe6ba; }
+.dicaUso { padding:8px 14px; border:1px solid #d5b88055; background:#081013d9; color:#f2d9ad; font-size:12px; }
+.mira { width:3px; height:3px; background:#f8e4bc; mix-blend-mode:normal; box-shadow:0 0 4px #000; }
+.mira::before,.mira::after { content:''; position:absolute; border:1px solid #f8e4bc66; width:5px; height:5px; top:-4px; }
+.mira::before { left:-7px; border-right:0; border-bottom:0; } .mira::after { right:-7px; border-left:0; border-bottom:0; }
+.chefe { background:linear-gradient(0deg,#11191de0,transparent); padding:12px 24px; gap:10px; }
+.chefeNome { font-size:10px; color:#ead6b5; }
+.chefeBarra { height:5px; background:#9b49392e; }
+.chefeBarra > span { background:linear-gradient(90deg,#82443a,#d69a75); box-shadow:0 0 10px #b8482833; }
+.mensagem { padding:12px 20px; font:12px/1.6 ui-monospace,Consolas,monospace; background:#0a141bed; border:1px solid #d5b88033; border-left:2px solid #d5b880; }
+@media(max-width:600px) { .status { left:12px; bottom:16px; gap:6px; } .medidor { min-width:76px; padding:9px; } .armamento { right:12px; bottom:16px; padding:9px; } .medidorValor,.municao { font-size:28px; } }
+.setor { position:absolute; right:28px; top:24px; display:grid; gap:6px; max-width:30%; text-align:right; font:9px/1.5 ui-monospace,Consolas,monospace; letter-spacing:.15em; color:#91a6a0; text-transform:uppercase; }
+.setor strong { font-weight:400; font-size:10px; color:#d1d9ce; letter-spacing:.06em; }
+@media(max-width:600px) { .setor { right:16px; top:20px; max-width:55%; } }

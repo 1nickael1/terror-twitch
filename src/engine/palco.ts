@@ -8,7 +8,8 @@ import type { AmbienteDef } from '../sim/fase';
 import { WebGL2IndisponivelError } from './eventosEngine';
 import { LightRig, SOMBRA_POR_QUALIDADE } from './lights';
 import { createMaterialBank, type MaterialBank } from './materials';
-import { createTextures, type Textures } from './textures';
+import { createTextures, listarTexturas, type Textures } from './textures';
+import { AcervoDoutor } from './view/doutor';
 
 const ESCALA_POR_QUALIDADE: Record<Qualidade, number> = { baixa: 0.6, media: 0.8, alta: 1 };
 
@@ -18,6 +19,7 @@ export class Palco {
   readonly camera = new PerspectiveCamera(80, 1, 0.05, 120);
   readonly texturas: Textures;
   readonly bank: MaterialBank;
+  readonly doutor: AcervoDoutor;
   readonly lights: LightRig;
   private readonly pipeline: PostPipeline;
   private readonly fog = new FogExp2(0x000000, 0);
@@ -39,7 +41,10 @@ export class Palco {
     this.scene.background = new Color(0x000000);
 
     this.texturas = createTextures();
+    const anisotropia = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    for (const t of listarTexturas(this.texturas)) t.anisotropy = anisotropia;
     this.bank = createMaterialBank(this.texturas);
+    this.doutor = new AcervoDoutor(this.bank, anisotropia);
     this.lights = new LightRig(this.scene, this.camera);
     this.pipeline = new PostPipeline(this.renderer);
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -90,6 +95,7 @@ export class Palco {
   dispose(): void {
     this.resizeObserver.disconnect();
     this.lights.dispose();
+    this.doutor.dispose();
     this.bank.dispose();
     this.pipeline.dispose();
     this.renderer.dispose();

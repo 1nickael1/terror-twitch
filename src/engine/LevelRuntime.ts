@@ -24,6 +24,9 @@ import { PortasView } from './view/portas';
 import { construirProps } from './view/props';
 import { ProjeteisView } from './view/projeteis';
 import { Recursos } from './view/recursos';
+import { Atmosfera } from './view/atmosfera';
+import { construirAcabamento } from './view/acabamento';
+import type { AcervoDoutor } from './view/doutor';
 
 /** Slots da malha estática que não projetam sombra. */
 const SEM_SOMBRA = new Set(['vidro', 'tela', 'papel']);
@@ -45,11 +48,12 @@ export class LevelRuntime {
   private readonly decals: DecalsView;
   private readonly armas: ArmasView;
   private readonly clarao: ClaraoCano;
+  private readonly atmosfera: Atmosfera;
   private t = 0;
   private descartado = false;
 
   constructor(deps: {
-    scene: Scene; camera: PerspectiveCamera; bank: MaterialBank; texturas: Textures; fase: LevelDef; world: World;
+    scene: Scene; camera: PerspectiveCamera; bank: MaterialBank; texturas: Textures; fase: LevelDef; world: World; doutor?: AcervoDoutor;
   }) {
     const { scene, camera, bank, fase, world } = deps;
     this.scene = scene;
@@ -66,6 +70,7 @@ export class LevelRuntime {
       const instancias = construirFase(world.grid, co);
       this.portas = new PortasView(world, this.rec, co, this.raiz);
       construirObjetos(fase, world.grid, co);
+      construirAcabamento(world.grid, co);
       co.finalizar(this.rec, this.raiz, SEM_SOMBRA, slotsDoRevestimento(fase.ambiente.revestimento));
       malhasInstanciadas(instancias, this.rec, this.raiz);
       this.comportas = new ComportasView(fase, world.grid, this.rec, this.raiz);
@@ -74,9 +79,10 @@ export class LevelRuntime {
       this.pickups = new PickupsView(world, this.rec, this.raiz);
       this.luzes = new LuzesFase(fase, world.grid, this.rec, this.raiz);
       this.decals = new DecalsView(fase, world.grid, this.rec, this.raiz, camera);
-      this.inimigos = new InimigosView(this.rec, this.raiz);
+      this.inimigos = new InimigosView(this.rec, this.raiz, deps.doutor);
       this.projeteis = new ProjeteisView(this.rec, this.raiz, camera);
       this.particulas = new ParticulasView(this.rec, this.raiz, camera);
+      this.atmosfera = new Atmosfera(world.grid, this.rec, this.raiz);
       this.perigosArea = new PerigosAreaView(fase, world.grid, this.rec, this.raiz, this.particulas);
       // presos à câmera (fora da raiz): descartados à parte
       clarao = new ClaraoCano(camera);
@@ -111,6 +117,7 @@ export class LevelRuntime {
    */
   sincronizar(world: World, eventos: readonly SimEvent[], alfa: number, dt: number): void {
     this.t += dt;
+    this.atmosfera.atualizar(world, this.camera, dt);
     this.portas.sincronizar(world);
     this.comportas.sincronizar(world);
     this.perigosArea.sincronizar(world);

@@ -105,10 +105,10 @@ describe('somDoEvento: mapa de eventos para sons', () => {
     const w = mundo();
     const i = porInimigo(w, 'funcionario', [6, 2]);
     const casos: [SimEvent, NomeSom][] = [
-      [{ tipo: 'inimigo_alerta', id: i.id }, 'grunhidoAlerta'],
-      [{ tipo: 'inimigo_ataque', id: i.id }, 'grunhidoAtaque'],
-      [{ tipo: 'inimigo_dor', id: i.id }, 'dorInimigo'],
-      [{ tipo: 'inimigo_morto', id: i.id }, 'morteInimigo'],
+      [{ tipo: 'inimigo_alerta', id: i.id }, 'doutorAlerta'],
+      [{ tipo: 'inimigo_ataque', id: i.id }, 'doutorAtaque'],
+      [{ tipo: 'inimigo_dor', id: i.id }, 'doutorDor'],
+      [{ tipo: 'inimigo_morto', id: i.id }, 'doutorMorte'],
     ];
     for (const [e, esperado] of casos) {
       const p = somDoEvento(e, w);
@@ -323,7 +323,7 @@ describe('somDoEvento: chefe e comportas', () => {
 
   it('os inimigos comuns seguem com os sons de sempre numa fase com chefe', () => {
     const w = comChefe();
-    const i = porInimigo(w, 'funcionario', [2, 2]);
+    const i = porInimigo(w, 'seguranca', [2, 2]);
     expect(somDoEvento({ tipo: 'inimigo_dor', id: i.id }, w)?.som).toBe('dorInimigo');
     expect(somDoEvento({ tipo: 'inimigo_ataque', id: i.id }, w)?.som).toBe('grunhidoAtaque');
   });

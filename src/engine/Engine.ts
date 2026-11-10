@@ -165,7 +165,7 @@ export class Engine {
     const world = criarWorld(f);
     // só vira a fase atual depois que o runtime existe (ele se limpa sozinho se falhar)
     const { scene, camera, bank, texturas } = this.palco;
-    this.runtime = new LevelRuntime({ scene, camera, bank, texturas, fase: f, world });
+    this.runtime = new LevelRuntime({ scene, camera, bank, texturas, fase: f, world, doutor: this.palco.doutor });
     this.fase = f;
     this._world = world;
     this.somDaFase = new SomDaFase(this.mixer, f);

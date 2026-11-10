@@ -92,6 +92,7 @@ export function Hud({ snap }: HudProps) {
   const cartoes = [...snap.cartoes].sort((a, b) => a - b);
   return (
     <div className={css.hud}>
+      <div className={css.setor}><span>SETOR / {String(snap.fase + 1).padStart(2, '0')}</span><strong>{snap.nomeFase}</strong></div>
       {snap.filtro === 'fita' && <OverlayFita />}
       {snap.filtro === 'camera' && <OverlayCamera />}
 
