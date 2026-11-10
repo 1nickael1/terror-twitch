@@ -73,6 +73,18 @@ function Medidor({ nome, valor, max, classe }: { nome: string; valor: number; ma
   );
 }
 
+function BarraDoChefe({ nome, vida }: { nome: string; vida: number }) {
+  const pct = Math.round(vida * 100);
+  return (
+    <div className={css.chefe}>
+      <span className={css.chefeNome}>{nome}</span>
+      <span className={css.chefeBarra} role="meter" aria-label={`Vida de ${nome}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+        <span style={{ transform: `scaleX(${vida})` }} />
+      </span>
+    </div>
+  );
+}
+
 const CLASSE_DANO = { frente: css.danoFrente, tras: css.danoTras, esquerda: css.danoEsquerda, direita: css.danoDireita } as const;
 
 export function Hud({ snap }: HudProps) {
@@ -92,6 +104,8 @@ export function Hud({ snap }: HudProps) {
       )}
 
       <div className={css.mira} aria-hidden="true" />
+
+      {snap.chefe && <BarraDoChefe nome={snap.chefe.nome} vida={snap.chefe.vida} />}
 
       {cartoes.length > 0 && (
         <ul className={css.cartoes} aria-label="Cartões de acesso">

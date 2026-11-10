@@ -16,8 +16,11 @@ export interface FimDeFaseProps {
   comando: (c: Comando) => void;
 }
 
+/** o foco inicial do relatório espera isto: uma tecla segurada na conclusão não ativa o botão */
+const ATRASO_FOCO_MS = 300;
+
 export function FimDeFase({ nomeFase, stats, totais, ultima, comando }: FimDeFaseProps) {
-  const ref = useNavegacaoMenu<HTMLDivElement>();
+  const ref = useNavegacaoMenu<HTMLDivElement>(undefined, { atrasoFocoMs: ATRASO_FOCO_MS });
   const titulo = useId();
   const linhas: [string, string][] = stats && totais ? [
     ['Tempo', formatarTempo(stats.tempo)],

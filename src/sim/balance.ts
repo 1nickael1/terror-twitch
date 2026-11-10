@@ -83,4 +83,21 @@ export const IA = {
 export const TENSAO = {
   perseguicao: 0.25, suspeita: 0.08, alarme: 0.15, vidaBaixa: 30, pesoVidaBaixa: 0.2,
   subida: 3.0, descida: 0.5,
+  chefeAcordado: 0.5, chefeInvestida: 0.2,
+} as const;
+/**
+ * Chefe da fase 1 (entidade 096). O tipo `entidade096` em `TIPOS` tem vida, velocidade, dano etc.;
+ * aqui ficam as regras próprias. Tempos em segundos, distâncias em metros, ângulos em radianos.
+ * `olharAngulo`/`olharTempo`: mira acumulada que o desperta; `distanciaDespertar`: jogador a até
+ * isso o desperta; `despertar`: parado virando para o jogador; `arrombar`: tempo arrombando uma
+ * porta; `investidaVel`/`investidaMax`/`investidaGolpe`: corrida em linha reta na arena e a
+ * distância em que ela golpeia; `pausa`: parado entre investidas; `retomada`: `despertando` ao
+ * restaurar um checkpoint com ele acordado. `velocidadePerseguicao` (m/s): corrida na perseguição, dentro e fora da
+ * arena (lote final do CP2; o `TIPOS.entidade096.velocidade` não é usado pelo chefe); `preparoInvestida`: parado antes
+ * de toda investida (o urro sai no início); `passoMetros`: metros andados entre dois eventos `chefe_passo`.
+ */
+export const CHEFE_096 = {
+  olharAngulo: (6 * Math.PI) / 180, olharTempo: 1.5, distanciaDespertar: 8, despertar: 2.5,
+  arrombar: 3, investidaVel: 15, investidaMax: 1.6, investidaGolpe: 1.3, pausa: 2.2, retomada: 3,
+  velocidadePerseguicao: 12, preparoInvestida: 0.5, passoMetros: 2.5,
 } as const;

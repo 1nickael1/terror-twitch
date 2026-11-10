@@ -4,12 +4,13 @@ import { IA, NUVEM } from '../balance';
 import { absorver } from '../damage';
 import type { SimEvent } from '../eventos';
 import type { InimigoDef } from '../fase';
-import { alturaPiso, centro, type Vec2 } from '../grid';
+import { alturaPiso, caminho, centro, DEGRAU, SALTO, type Vec2 } from '../grid';
 import { ouve } from '../noise';
 import { resolverOnde } from '../onde';
 import { frente } from '../player';
 import type { Inimigo, World } from '../world';
-import { encarar, irPara, recuar } from './movimento';
+import { avancadorDeChefe } from './chefes';
+import { celulaMaisProxima, encarar, irPara, recuar, solidoRota } from './movimento';
 import { alcanceVisao, distanciaJogador, linhaDeVisao, tiroLivre, ve } from './percepcao';
 import { tipoDe, type TipoInimigo } from './tipos';
 
@@ -38,6 +39,7 @@ export function criarInimigo(w: World, def: InimigoDef): Inimigo {
     yaw: def.yaw ?? 0, vida: tipo.vida, modo: def.dormindo ? 'dormindo' : 'patrulha', timer: 0, espera: 0,
     alvo: null, rota: [], rotaEm: 0, patrulha: (def.patrulha ?? []).map(centro), patrulhaI: 0, lento: 0,
     ultimoVisto: null, semVer: 0, semRota: false, destinoRota: null, rotasCalculadas: 0, alertado: false,
+    refugio: null,
   };
 }
 
@@ -212,9 +214,36 @@ function perseguir(w: World, i: Inimigo, vel: number, dt: number): SimEvent[] {
     encarar(i, j.pos);
     return i.espera <= 0 ? entrarAtaque(i, t) : [];
   }
+  if (visto && t.arquetipo === 'avancador') return irAoJogador(w, i, vel, dt);
+  i.refugio = null;
   const destino = visto ? j.pos : i.ultimoVisto;
   const ida = irPara(w, i, destino, vel, dt);
   if (!visto && (ida.chegou || ida.inalcancavel)) entrarSuspeita(i, destino);
+  return ida.eventos;
+}
+
+/**
+ * Avançador vendo o jogador: rota até ele. Duas falhas seguidas de rota (jogador inalcançável)
+ * o levam ao `refugio`, a célula alcançável mais próxima do jogador, onde espera de frente para
+ * ele; a cada recálculo de rota (`IA.intervaloRota`), tenta de novo a rota normal.
+ */
+function irAoJogador(w: World, i: Inimigo, vel: number, dt: number): SimEvent[] {
+  const j = w.jogador;
+  const recalculo = i.refugio !== null && i.rotaEm <= 0;
+  if (recalculo) {
+    i.rotasCalculadas++;
+    const rota = caminho(w.grid, i.pos, j.pos, DEGRAU, solidoRota(w), SALTO);
+    i.refugio = rota === null ? celulaMaisProxima(w, i, j.pos) : null;   // o jogador pode ter andado
+  }
+  if (!i.refugio) {
+    const ida = irPara(w, i, j.pos, vel, dt);
+    if (ida.inalcancavel) i.refugio = celulaMaisProxima(w, i, j.pos);
+    return ida.eventos;
+  }
+  const ida = irPara(w, i, i.refugio, vel, dt);
+  if (ida.chegou || ida.inalcancavel) encarar(i, j.pos);
+  // `irPara` em linha reta não reinicia o intervalo: sem isto, a nova tentativa sairia a cada passo
+  if (recalculo) i.rotaEm = Math.max(i.rotaEm, IA.intervaloRota);
   return ida.eventos;
 }
 
@@ -271,12 +300,16 @@ function avancarInimigo(w: World, i: Inimigo, ruidos: readonly Ruido[], dt: numb
   }
 }
 
-/** Um passo de todos os inimigos. Com o jogo parado (`estado !== 'jogando'`), nada acontece. */
+/**
+ * Um passo de todos os inimigos. O inimigo do chefe (`w.chefe.inimigoId`) vai para a IA do tipo
+ * dele (`ai/chefes.ts`). Com o jogo parado (`estado !== 'jogando'`), nada acontece.
+ */
 export function avancarInimigos(w: World, ruidos: readonly Ruido[], dt: number): SimEvent[] {
   const eventos: SimEvent[] = [];
   for (const i of w.inimigos) {
     if (w.estado !== 'jogando') break;
-    eventos.push(...avancarInimigo(w, i, ruidos, dt));
+    const chefe = w.chefe?.inimigoId === i.id ? avancadorDeChefe(i.tipo) : null;
+    eventos.push(...(chefe ? chefe(w, i, dt) : avancarInimigo(w, i, ruidos, dt)));
   }
   return eventos;
 }

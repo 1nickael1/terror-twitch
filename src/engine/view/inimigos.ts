@@ -1,14 +1,23 @@
 // Inimigos: um esqueleto por inimigo (modelos em `inimigosModelos.ts`) com animação procedural
 // por estado. Casa por id a cada quadro; nada do World é guardado entre quadros. O estado
 // puramente visual (fase da passada, tempo desde a morte, golpe) vive aqui, indexado por id.
+// O chefe (`world.chefe.inimigoId`) usa as poses de `chefePoses.ts` pela fase dele; acerto nele é
+// um tremor curto, sem clarão (ele leva centenas de tiros), e a queda dura mais.
+// Inimigo sem linha de visão da grade até o jogador (e a mais de `PERTO_SEMPRE`) não é desenhado (`oclusao.ts`).
 import { Group } from 'three';
+import { tipoDe } from '../../sim/ai/tipos';
+import { CHEFE_096 } from '../../sim/balance';
+import { solidoDe } from '../../sim/doors';
 import type { SimEvent } from '../../sim/eventos';
-import type { Inimigo, World } from '../../sim/world';
+import type { EstadoChefe, Inimigo, World } from '../../sim/world';
+import { calcularPoseChefe, GOLPE_CHEFE, PERTO_GOLPE } from './chefePoses';
 import { ModelosInimigos, type Rig } from './inimigosModelos';
 import { CHAVES, DOR_VISUAL, GOLPE, aproximar, calcularPose, novaPose, type Pose } from './inimigosPoses';
+import { aVista } from './oclusao';
 import type { Recursos } from './recursos';
 
 const QUEDA = 0.4;            // s até o corpo estar no chão
+const QUEDA_CHEFE = 0.6;      // s do chefe desabando
 const CLARAO_DOR = 0.09;      // s do clarão no corpo
 const PASSADA = 4.4;          // rad de fase por metro andado
 const SUAVE_YAW = 14;         // 1/s
@@ -26,6 +35,8 @@ interface Vista {
   preparo: number;
   /** último quadro em que o inimigo estava no World (os que somem são removidos) */
   quadro: number;
+  /** é o chefe: poses próprias, queda e golpe mais longos, acerto sem clarão */
+  chefe: boolean; queda: number; duracaoGolpe: number;
 }
 
 const alvo = novaPose();
@@ -65,13 +76,15 @@ export class InimigosView {
     this.ultimoT = world.t;
 
     const quadro = ++this.quadro;
+    const chefe = world.chefe;
     for (const i of world.inimigos) {
       let v = this.vistas.get(i.id);
-      if (v && v.tipo !== i.tipo) {
+      const ehChefe = chefe?.inimigoId === i.id;
+      if (v && (v.tipo !== i.tipo || v.chefe !== ehChefe)) {
         this.remover(i.id);
         v = undefined;
       }
-      if (!v) v = this.criar(i);
+      if (!v) v = this.criar(i, ehChefe ? chefe : null, world);
       v.quadro = quadro;
       if (novoPasso) {
         const d = Math.hypot(i.pos.x - v.agora.x, i.pos.z - v.agora.z);
@@ -84,18 +97,31 @@ export class InimigosView {
         v.agora.z = i.pos.z;
         if (simDt > 0) v.vel = aproximar(v.vel, d > TELEPORTE ? 0 : d / simDt, 1 - Math.exp(-simDt * SUAVE_VEL));
       }
-      this.animar(v, i, simDt, dt, alfa);
+      this.animar(v, i, ehChefe ? chefe : null, world, simDt, dt, alfa);
     }
     for (const [id, v] of this.vistas) if (v.quadro !== quadro) this.remover(id);
+
+    // atrás de parede ou porta fechada: não desenha (as malhas de um inimigo custam ~8 draw calls)
+    const solido = solidoDe(world);
+    const olho = world.jogador.pos;
+    for (const v of this.vistas.values()) {
+      const p = v.rig.raiz.position;
+      v.rig.raiz.visible = aVista(world.grid, olho, { x: p.x, z: p.z }, tipoDe(v.tipo).raio, solido);
+    }
 
     // o clarão anda em tempo real e desconta antes dos eventos: o acerto deste quadro sempre pisca
     for (const v of this.vistas.values()) v.clarao = Math.max(0, v.clarao - dt);
     for (const e of eventos) {
-      if (e.tipo !== 'inimigo_dor') continue;
+      if (e.tipo !== 'inimigo_dor' && e.tipo !== 'inimigo_ataque') continue;
       const v = this.vistas.get(e.id);
       if (!v) continue;
+      if (e.tipo === 'inimigo_ataque') {
+        // o golpe do chefe desce o braço erguido (os comuns animam pela troca de modo)
+        if (v.chefe) v.golpe = 0;
+        continue;
+      }
       v.dor = 0;
-      if (!this.reduzirFlashes) v.clarao = CLARAO_DOR;
+      if (!this.reduzirFlashes && !v.chefe) v.clarao = CLARAO_DOR;
     }
     for (const v of this.vistas.values()) this.piscar(v, v.clarao > 0);
   }
@@ -111,7 +137,7 @@ export class InimigosView {
     this.raiz.removeFromParent();
   }
 
-  private criar(i: Inimigo): Vista {
+  private criar(i: Inimigo, chefe: EstadoChefe | null, world: World): Vista {
     const rig = this.modelos.montar(i.tipo);
     rig.raiz.name = `inimigo:${i.id}`;
     this.raiz.add(rig.raiz);
@@ -119,9 +145,11 @@ export class InimigosView {
       tipo: i.tipo, rig, antes: { x: i.pos.x, y: i.y, z: i.pos.z }, agora: { x: i.pos.x, y: i.y, z: i.pos.z }, yaw: i.yaw, vel: 0, passada: 0, t: (i.id * 0.37) % 6,
       modo: i.modo, golpe: -1, dor: DOR_VISUAL, clarao: 0, piscando: false,
       // já morto ao aparecer (checkpoint): deitado desde o início
-      morto: i.modo === 'morto' ? QUEDA : 0, poseMorte: novaPose(), pose: novaPose(), quadro: this.quadro, preparo: 0,
+      morto: 0, poseMorte: novaPose(), pose: novaPose(), quadro: this.quadro, preparo: 0,
+      chefe: chefe !== null, queda: chefe ? QUEDA_CHEFE : QUEDA, duracaoGolpe: chefe ? GOLPE_CHEFE : GOLPE,
     };
-    v.preparo = calcularPose(alvo, v.rig.base, v, i);
+    if (i.modo === 'morto') v.morto = v.queda;
+    v.preparo = this.poseAlvo(v, i, chefe, world);
     Object.assign(v.pose, alvo);
     this.vistas.set(i.id, v);
     return v;
@@ -146,9 +174,25 @@ export class InimigosView {
     }
   }
 
-  private animar(v: Vista, i: Inimigo, simDt: number, dt: number, alfa: number): void {
-    // transições de estado
-    if (v.modo === 'ataque' && i.modo === 'perseguicao') v.golpe = 0;
+  /** Pose alvo em `alvo`; devolve o progresso do preparo do ataque (0 para o chefe). */
+  private poseAlvo(v: Vista, i: Inimigo, chefe: EstadoChefe | null, world: World): number {
+    if (!chefe) return calcularPose(alvo, v.rig.base, v, i);
+    const j = world.jogador;
+    calcularPoseChefe(alvo, v.rig.base, v, {
+      // o `Inimigo` morre um passo antes de a fase do chefe virar `morto`
+      // no preparo da investida (timer acima de investidaMax) ele fica encolhido, como na pausa
+      fase: i.modo === 'morto' ? 'morto' : chefe.fase === 'investida' && chefe.timer > CHEFE_096.investidaMax ? 'pausa' : chefe.fase,
+      timer: chefe.timer,
+      perto: Math.hypot(j.pos.x - i.pos.x, j.pos.z - i.pos.z) < PERTO_GOLPE,
+    });
+    return 0;
+  }
+
+  private animar(v: Vista, i: Inimigo, chefe: EstadoChefe | null, world: World, simDt: number, dt: number, alfa: number): void {
+    // transições de estado (o chefe golpeia pelo evento `inimigo_ataque`)
+    if (!v.chefe && v.modo === 'ataque' && i.modo === 'perseguicao') v.golpe = 0;
+    // golpe do chefe só vale na perseguição: não volta com o braço erguido depois da investida
+    if (chefe && chefe.fase !== 'perseguicao') v.golpe = -1;
     if (i.modo === 'dor' && v.modo !== 'dor') v.dor = 0;
     if (i.modo === 'morto' && v.modo !== 'morto') {
       Object.assign(v.poseMorte, v.pose);
@@ -157,13 +201,13 @@ export class InimigosView {
     v.modo = i.modo;
     v.t += simDt;
     v.passada += simDt * v.vel * PASSADA;
-    if (v.golpe >= 0) v.golpe = v.golpe + simDt > GOLPE ? -1 : v.golpe + simDt;
+    if (v.golpe >= 0) v.golpe = v.golpe + simDt > v.duracaoGolpe ? -1 : v.golpe + simDt;
     v.dor = Math.min(DOR_VISUAL, v.dor + simDt);
 
-    v.preparo = calcularPose(alvo, v.rig.base, v, i);
+    v.preparo = this.poseAlvo(v, i, chefe, world);
     if (i.modo === 'morto') {
-      v.morto = Math.min(QUEDA, v.morto + simDt);
-      const k = v.morto / QUEDA;
+      v.morto = Math.min(v.queda, v.morto + simDt);
+      const k = v.morto / v.queda;
       const e = k * k; // cai acelerando
       for (const c of CHAVES) v.pose[c] = aproximar(v.poseMorte[c], alvo[c], e);
     } else {
@@ -193,8 +237,10 @@ export class InimigosView {
     ossos.bracoD.rotation.set(p.bracoDX, 0, p.bracoDZ);
     ossos.pernaE.rotation.x = p.pernaEX;
     ossos.pernaD.rotation.x = p.pernaDX;
+    ossos.antebracoE?.rotation.set(p.antebracoEX, 0, 0);
+    ossos.antebracoD?.rotation.set(p.antebracoDX, 0, 0);
     // no fim da queda: olhos e visor apagam (o crachá fica) e nenhuma malha projeta sombra
-    const vivo = i.modo !== 'morto' || v.morto < QUEDA;
+    const vivo = i.modo !== 'morto' || v.morto < v.queda;
     for (const m of malhas) {
       if (m.apaga) m.malha.visible = vivo;
       m.malha.castShadow = m.sombra && vivo;

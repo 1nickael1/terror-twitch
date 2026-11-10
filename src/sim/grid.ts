@@ -135,12 +135,17 @@ function andavel(c: Celula): boolean {
   return c.tipo === 'piso';
 }
 
-export function passavel(g: Grid, de: Coord, para: Coord, alcance: number, solido?: Solido): boolean {
+/**
+ * Dá para ir de `de` a `para` (vizinhas): piso andável, sem sólido, com vão livre, subindo até
+ * `alcance` e descendo até `queda` (padrão: qualquer altura).
+ */
+export function passavel(g: Grid, de: Coord, para: Coord, alcance: number, solido?: Solido, queda = Infinity): boolean {
   const alvo = celula(g, para[0], para[1]);
   if (!andavel(alvo)) return false;
   if (solido?.(para[0], para[1])) return false;
   if (alvo.teto - alvo.piso < VAO_MINIMO) return false;
-  return alturaBorda(g, para, de) - alturaBorda(g, de, para) <= alcance;
+  const subida = alturaBorda(g, para, de) - alturaBorda(g, de, para);
+  return subida <= alcance && -subida <= queda;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -276,8 +281,11 @@ export function alcanceTiro(
 const VIZINHOS: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const CUSTO_SUBIDA = 0.5;
 
-/** A* em 4 direções. Devolve os centros das células (sem a origem), terminando em `para`. */
-export function caminho(g: Grid, de: Vec2, para: Vec2, alcance: number, solido?: Solido): Vec2[] | null {
+/**
+ * A* em 4 direções. Devolve os centros das células (sem a origem), terminando em `para`.
+ * `queda`: maior descida aceita numa aresta (padrão: qualquer altura; os inimigos usam `SALTO`).
+ */
+export function caminho(g: Grid, de: Vec2, para: Vec2, alcance: number, solido?: Solido, queda = Infinity): Vec2[] | null {
   const [c0, r0] = coordDe(de);
   const [c1, r1] = coordDe(para);
   if (c0 === c1 && r0 === r1) return [];
@@ -310,7 +318,7 @@ export function caminho(g: Grid, de: Vec2, para: Vec2, alcance: number, solido?:
     for (const [dc, dr] of VIZINHOS) {
       const nc = col + dc;
       const nr = row + dr;
-      if (!passavel(g, [col, row], [nc, nr], alcance, solido)) continue;
+      if (!passavel(g, [col, row], [nc, nr], alcance, solido, queda)) continue;
       const sobe = alturaBorda(g, [nc, nr], [col, row]) > alturaBorda(g, [col, row], [nc, nr]);
       const novo = atual.custo + 1 + (sobe ? CUSTO_SUBIDA : 0);
       const ni = idx(nc, nr);

@@ -9,7 +9,7 @@ import { ARMAS } from '../sim/balance';
 import type { ArmaId, DocumentoDef, NivelCartao } from '../sim/fase';
 import type { Comando, Tela } from '../sim/tela';
 import type { Stats } from '../sim/world';
-import { ladoDoDano, textoDoEvento, type LadoDano } from './formato';
+import { barraDoChefe, ladoDoDano, textoDoEvento, type BarraChefe, type LadoDano } from './formato';
 
 /** a mensagem temporária do HUD some depois disto */
 const MENSAGEM_MS = 4000;
@@ -26,6 +26,8 @@ export interface HudSnapshot {
   opcoes: Opcoes; progresso: Progresso; filtro: string;
   /** o navegador recusou a trava pedida pelo "Continuar" (aviso na pausa) */
   travaRecusada: boolean;
+  /** barra do chefe: só com ele acordado (vida 0..1 em passos de 1%) */
+  chefe: BarraChefe | null;
 }
 
 const INICIAL: HudSnapshot = Object.freeze({
@@ -34,7 +36,7 @@ const INICIAL: HudSnapshot = Object.freeze({
   mensagem: null, documento: null, danoEm: 0, danoLado: null,
   stats: null, totais: null,
   opcoes: OPCOES_PADRAO, progresso: { desbloqueadas: 1, melhorTempo: {} }, filtro: OPCOES_PADRAO.filtro,
-  travaRecusada: false,
+  travaRecusada: false, chefe: null,
 }) as HudSnapshot;
 
 /** Armazenamento em memória: vale só nesta aba (localStorage bloqueado ou indisponível). */
@@ -153,7 +155,8 @@ export class EngineStore {
   private onEvent = (ev: EngineEvent): void => {
     if (ev.type === 'travado') this.set({ travado: ev.travado });
     else if (ev.type === 'filtro') this.set({ filtro: ev.id });
-    else if (ev.type === 'fase') this.set({ mensagem: null, danoEm: 0, danoLado: null });
+    // troca de fase: a barra do chefe some (a fase nova recria a dela, se tiver chefe acordado)
+    else if (ev.type === 'fase') this.set({ mensagem: null, danoEm: 0, danoLado: null, chefe: null });
     else if (ev.type === 'eventos') this.lerEventos(ev.eventos);
     else if (ev.type === 'quadro') {
       if (this.snap.mensagem !== null && performance.now() - this.mensagemEm > MENSAGEM_MS) this.set({ mensagem: null });
@@ -191,6 +194,7 @@ export class EngineStore {
     if (!w) return;
     const j = w.jogador;
     const s = this.snap;
+    const chefe = barraDoChefe(w);
     this.set({
       nomeFase: w.fase.nome,
       vida: Math.max(0, Math.ceil(j.vida)), colete: Math.max(0, Math.ceil(j.colete)), arma: j.arma,
@@ -198,6 +202,7 @@ export class EngineStore {
       // mesma referência enquanto o conteúdo não muda (o `set` compara por ===)
       armas: mesmaLista(s.armas, j.armas) ? s.armas : [...j.armas],
       cartoes: mesmaLista(s.cartoes, j.cartoes) ? s.cartoes : [...j.cartoes],
+      chefe: chefe && s.chefe && chefe.nome === s.chefe.nome && chefe.vida === s.chefe.vida ? s.chefe : chefe,
     });
   }
 

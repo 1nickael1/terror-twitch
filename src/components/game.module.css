@@ -36,6 +36,20 @@
 .slotTem { border-color: rgba(236, 232, 220, 0.5); color: var(--papel); }
 .slotAtual { border-color: #e0ac4a; background: rgba(224, 172, 74, 0.25); color: #fff; }
 
+/* barra do chefe: topo central, larga e fina, nome acima */
+.chefe {
+  position: absolute; left: 50%; top: 22px; transform: translateX(-50%); width: min(560px, calc(100% - 32px));
+  display: grid; gap: 5px; justify-items: center;
+}
+.chefeNome { font: 600 12px/1 ui-monospace, Consolas, monospace; letter-spacing: 0.32em; text-transform: uppercase; color: var(--papel); }
+.chefeBarra {
+  display: block; width: 100%; height: 4px; background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+.chefeBarra > span {
+  display: block; height: 100%; transform-origin: left center; background: #c9c3b4; transition: transform 0.25s ease-out;
+}
+
 .cartoes { position: absolute; left: 24px; top: 20px; display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .cartao {
   width: 34px; height: 22px; display: grid; place-items: center; border-radius: 2px;
@@ -74,7 +88,7 @@
 .bateria { display: inline-block; width: 42px; height: 16px; border: 2px solid currentColor; vertical-align: middle; padding: 2px; }
 .bateria span { display: block; width: 65%; height: 100%; background: currentColor; }
 @keyframes piscar { to { visibility: hidden; } }
-@media (prefers-reduced-motion: reduce) { .rec, .mensagem { animation: none; } .barra > span { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .rec, .mensagem { animation: none; } .barra > span, .chefeBarra > span { transition: none; } }
 
 @media (max-width: 600px) {
   .overlay { font-size: 15px; }
@@ -84,4 +98,6 @@
   .armamento { right: 16px; }
   .medidor { min-width: 80px; }
   .medidorValor, .municao { font-size: 32px; }
+  /* abaixo dos cartões e dos textos de canto dos filtros (topo em 64px, ~18px de altura) */
+  .chefe { top: 92px; }
 }

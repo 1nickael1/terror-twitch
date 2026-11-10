@@ -1,5 +1,5 @@
 // Índice das fases jogáveis, em ordem.
 import type { LevelDef } from '../sim/fase';
-import { faseTeste } from './teste';
+import { fase1 } from './fase1';
 
-export const FASES: readonly LevelDef[] = [faseTeste];
+export const FASES: readonly LevelDef[] = [fase1];

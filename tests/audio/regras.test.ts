@@ -1,15 +1,16 @@
 // tests/audio/regras.test.ts
 import { describe, expect, it } from 'vitest';
 import {
-  audivel, LimitadorSons, ocluido, RegistroVozes, somDoEvento, type NomeSom,
+  audivel, lamentoDoChefe, LimitadorSons, ocluido, RegistroVozes, SOM_DE_GATILHO, somDoEvento, type NomeSom,
 } from '../../src/audio/regras';
+import { SONS_DE_EVENTO } from '../../src/sim/catalogo';
 import { solidoDe } from '../../src/sim/doors';
 import { JOGADOR } from '../../src/sim/balance';
 import type { SimEvent } from '../../src/sim/eventos';
 import type { ArmaId } from '../../src/sim/fase';
 import { centro } from '../../src/sim/grid';
 import { criarWorld, type World } from '../../src/sim/world';
-import { faseMinima, porInimigo } from '../sim/ajuda';
+import { faseComChefe, faseMinima, porInimigo } from '../sim/ajuda';
 
 const PLANTA = [
   '##########',
@@ -125,8 +126,12 @@ describe('somDoEvento: mapa de eventos para sons', () => {
     expect(somDoEvento({ tipo: 'projetil', id: 77 }, w)).toBeNull();
   });
 
-  it('evento som: id conhecido toca o som de mesmo nome; desconhecido é ignorado', () => {
+  it('evento som: ids do catálogo tocam a síntese própria; desconhecido é ignorado', () => {
     expect(somDoEvento({ tipo: 'som', id: 'bip' }, mundo())).toEqual({ som: 'bip', pos: null });
+    expect(somDoEvento({ tipo: 'som', id: 'sirene_curta' }, mundo())).toEqual({ som: 'sireneCurta', pos: null });
+    expect(somDoEvento({ tipo: 'som', id: 'estalo' }, mundo())).toEqual({ som: 'estalo', pos: null });
+    for (const id of SONS_DE_EVENTO) expect(SOM_DE_GATILHO[id]).toBeDefined();
+    expect(somDoEvento({ tipo: 'som', id: 'toString' }, mundo())).toBeNull();
     expect(somDoEvento({ tipo: 'som', id: 'trombeta' }, mundo())).toBeNull();
     expect(somDoEvento({ tipo: 'som', id: '' }, mundo())).toBeNull();
   });
@@ -247,5 +252,93 @@ describe('distância e oclusão', () => {
     const b = somDoEvento({ tipo: 'porta', id: 'B', estado: 'abrindo' }, w)!;
     expect(ocluido(w.grid, o, a.pos!, solidoDe(w), a.celulaPorta)).toBe(false);
     expect(ocluido(w.grid, o, b.pos!, solidoDe(w), b.celulaPorta)).toBe(true);
+  });
+});
+
+describe('somDoEvento: chefe e comportas', () => {
+  const PLANTA_CHEFE = [
+    '############',
+    '#P.D.......#',
+    '#..........#',
+    '############',
+  ].join('\n');
+  function comChefe(): World {
+    return criarWorld(faseComChefe(PLANTA_CHEFE, {
+      em: [9, 2],
+      perigos: [{ id: 'c1', tipo: 'comporta', area: [5, 1, 1, 2], duracao: 3, recarga: 8, danoChefe: 0.3, danoComum: 40 }],
+    }, { portas: [{ id: 'd1', em: 'D' }] }));
+  }
+  const idChefe = (w: World) => w.chefe?.inimigoId ?? -1;
+
+  it('desperta e investida: posicionais no chefe, acima da cabeça dos comuns', () => {
+    const w = comChefe();
+    const c = centro([9, 2]);
+    for (const [tipo, nome] of [['chefe_desperta', 'chefeDesperta'], ['chefe_investida', 'chefeInvestida']] as const) {
+      const p = somDoEvento({ tipo }, w);
+      expect(p?.som).toBe(nome);
+      expect(p?.pos).toEqual(c);
+      expect(p?.y).toBeGreaterThan(2);
+    }
+  });
+
+  it('passo do chefe: pesado e posicional, no chão sob ele', () => {
+    const w = comChefe();
+    const pos = { x: 12.3, z: 4.1 };
+    const p = somDoEvento({ tipo: 'chefe_passo', pos }, w);
+    expect(p).toMatchObject({ som: 'chefePasso', pos });
+    expect(p?.y).toBeLessThan(0.5);
+    expect(p?.pos).not.toBe(pos);   // cópia: o evento não é guardado
+  });
+
+  it('arrombar soa na porta (a própria porta não abafa)', () => {
+    const w = comChefe();
+    const p = somDoEvento({ tipo: 'chefe_arromba', porta: 'd1' }, w);
+    expect(p).toMatchObject({ som: 'chefeArromba', pos: centro([3, 1]), celulaPorta: [3, 1] });
+    expect(somDoEvento({ tipo: 'chefe_arromba', porta: 'nao_existe' }, w)).toBeNull();
+  });
+
+  it('morte do chefe: lamento que cai, não posicional', () => {
+    expect(somDoEvento({ tipo: 'chefe_morto' }, comChefe())).toEqual({ som: 'chefeMorto', pos: null });
+  });
+
+  it('comporta: fecha e abre posicionais no centro da área; recarregando é um bip de recusa do jogador', () => {
+    const w = comChefe();
+    const meio = { x: 5 * 2 + 1, z: 1 * 2 + 2 };
+    expect(somDoEvento({ tipo: 'perigo', id: 'c1', estado: 'fecha' }, w)).toMatchObject({ som: 'comportaFecha', pos: meio });
+    expect(somDoEvento({ tipo: 'perigo', id: 'c1', estado: 'abre' }, w)).toMatchObject({ som: 'comportaAbre', pos: meio });
+    expect(somDoEvento({ tipo: 'perigo', id: 'c1', estado: 'recarregando' }, w)).toEqual({ som: 'comportaRecusa', pos: null });
+    expect(somDoEvento({ tipo: 'perigo', id: 'x', estado: 'fecha' }, w)).toBeNull();
+  });
+
+  it('eventos genéricos de inimigo do chefe: dor, morte e alerta calados; o golpe tem som próprio', () => {
+    const w = comChefe();
+    const id = idChefe(w);
+    expect(somDoEvento({ tipo: 'inimigo_dor', id }, w)).toBeNull();
+    expect(somDoEvento({ tipo: 'inimigo_morto', id }, w)).toBeNull();
+    expect(somDoEvento({ tipo: 'inimigo_alerta', id }, w)).toBeNull();
+    expect(somDoEvento({ tipo: 'inimigo_ataque', id }, w)).toMatchObject({ som: 'chefeGolpe', pos: centro([9, 2]) });
+  });
+
+  it('os inimigos comuns seguem com os sons de sempre numa fase com chefe', () => {
+    const w = comChefe();
+    const i = porInimigo(w, 'funcionario', [2, 2]);
+    expect(somDoEvento({ tipo: 'inimigo_dor', id: i.id }, w)?.som).toBe('dorInimigo');
+    expect(somDoEvento({ tipo: 'inimigo_ataque', id: i.id }, w)?.som).toBe('grunhidoAtaque');
+  });
+});
+
+describe('lamentoDoChefe', () => {
+  const PLANTA_L = ['#######', '#P....#', '#######'].join('\n');
+  it('toca na posição do chefe só enquanto ele está inerte', () => {
+    const w = criarWorld(faseComChefe(PLANTA_L, { em: [5, 1] }));
+    expect(lamentoDoChefe(w)?.pos).toEqual(centro([5, 1]));
+    if (w.chefe) w.chefe.fase = 'despertando';
+    expect(lamentoDoChefe(w)).toBeNull();
+    if (w.chefe) w.chefe.fase = 'morto';
+    expect(lamentoDoChefe(w)).toBeNull();
+  });
+
+  it('sem chefe, nada', () => {
+    expect(lamentoDoChefe(mundo())).toBeNull();
   });
 });

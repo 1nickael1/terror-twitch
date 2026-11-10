@@ -1,6 +1,6 @@
 // tests/sim/ajuda.ts
 import type { Coord } from '../../src/sim/grid';
-import type { LevelDef } from '../../src/sim/fase';
+import type { ChefeDef, LevelDef } from '../../src/sim/fase';
 import { criarInimigo } from '../../src/sim/ai/comum';
 import { TIPOS } from '../../src/sim/ai/tipos';
 import type { Inimigo, World } from '../../src/sim/world';
@@ -14,6 +14,20 @@ export function faseMinima(planta: string, extra: Partial<LevelDef> = {}): Level
     ambiente: { nevoa: 0, corNevoa: 0, ambiente: 1, somDeFundo: '', musica: '' },
     ...extra,
   };
+}
+
+/**
+ * Fase mínima com o chefe 096 em `em`. Sem `arena`, a arena fica numa célula de parede (nunca
+ * entra); sem `retomada`, é o próprio `em`.
+ */
+export function faseComChefe(planta: string, chefe: Partial<ChefeDef> & { em: ChefeDef['em'] }, extra: Partial<LevelDef> = {}): LevelDef {
+  return faseMinima(planta, {
+    chefe: {
+      tipo: 'entidade096', nome: 'SCP-096', yaw: 0, arena: [0, 0, 1, 1], retomada: chefe.em, perigos: [],
+      ...chefe,
+    },
+    ...extra,
+  });
 }
 
 export function porInimigo(w: World, tipo: string, coord: Coord): Inimigo {

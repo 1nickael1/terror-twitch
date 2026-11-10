@@ -1,0 +1,72 @@
+// Laço posicional do lamento do chefe inerte: guia o jogador até ele e cria tensão. Toca na
+// posição dada por `lamentoDoChefe` (regras.ts) e para ao despertar ou ao descarregar a fase.
+// Cadeia: laço → passa-baixa (oclusão) → ganho (oclusão) → panner → barramento.
+import { criarCadeiaPosicional } from './posicional';
+import { POSICIONAL } from './regras';
+import { lamentoInerte } from './sinteseChefe';
+import type { Bancada, Laco } from './sintese';
+
+/** corte do passa-baixa sem oclusão */
+const ABERTO = 16000;
+/** constante de tempo (s) da troca de oclusão: sem degrau */
+const SUAVE = 0.12;
+
+export class LamentoChefe {
+  private readonly laco: Laco;
+  private readonly filtro: BiquadFilterNode;
+  private readonly ganho: GainNode;
+  private readonly panner: PannerNode;
+  private abafado: boolean | null = null;
+  private parado = false;
+
+  constructor(private readonly b: Bancada, destino: AudioNode, x: number, y: number, z: number) {
+    const ctx = b.ctx;
+    const cadeia = criarCadeiaPosicional(ctx, x, y, z, true);
+    // a cadeia ocluída é [filtro, ganho, panner]; começa aberta e é ajustada por `abafar`
+    this.filtro = cadeia[0] as BiquadFilterNode;
+    this.ganho = cadeia[1] as GainNode;
+    this.panner = cadeia[2] as PannerNode;
+    this.filtro.frequency.value = ABERTO;
+    this.ganho.gain.value = 1;
+    this.panner.connect(destino);
+    this.laco = lamentoInerte(b, this.filtro);
+  }
+
+  /** Atrás de parede ou porta fechada: abafado (rampa curta). */
+  abafar(abafado: boolean): void {
+    if (this.parado || abafado === this.abafado) return;
+    this.abafado = abafado;
+    const t = this.b.ctx.currentTime;
+    this.filtro.frequency.setTargetAtTime(abafado ? POSICIONAL.corteOclusao : ABERTO, t, SUAVE);
+    this.ganho.gain.setTargetAtTime(abafado ? POSICIONAL.ganhoOclusao : 1, t, SUAVE);
+  }
+
+  mover(x: number, y: number, z: number): void {
+    const p = this.panner;
+    if (p.positionX) {
+      if (p.positionX.value === x && p.positionY.value === y && p.positionZ.value === z) return;
+      p.positionX.value = x;
+      p.positionY.value = y;
+      p.positionZ.value = z;
+    } else {
+      p.setPosition(x, y, z);
+    }
+  }
+
+  parar(): void {
+    if (this.parado) return;
+    this.parado = true;
+    const ctx = this.b.ctx;
+    this.laco.parar(ctx.state === 'closed' ? 0 : ctx.currentTime);
+    // o laço solta a própria saída; a cadeia sai do barramento depois da rampa
+    setTimeout(() => {
+      for (const n of [this.filtro, this.ganho, this.panner]) {
+        try {
+          n.disconnect();
+        } catch {
+          /* já desligado */
+        }
+      }
+    }, 300);
+  }
+}

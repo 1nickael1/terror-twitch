@@ -12,7 +12,7 @@ artigo na wiki. Nenhum nome é escrito de memória.
 
 | Entidade | Autor(es), conforme a wiki | Página | Licença | Conferido em | Uso no jogo |
 |---|---|---|---|---|---|
-| SCP-096 | Dr Dan | https://scp-wiki.wikidot.com/scp-096 | CC BY-SA 3.0 | 09/11/2026, no bloco de licença da página do artigo | Inspiração do chefe da fase 1 |
+| SCP-096 | Dr Dan | https://scp-wiki.wikidot.com/scp-096 | CC BY-SA 3.0 | 09/11/2026, no bloco de licença da página do artigo; reconferido em 10/11/2026 | Inspiração do chefe da fase 1 |
 
 Entidades previstas para as próximas fases, **ainda sem autoria conferida** e por isso fora da
 tabela: SCP-049 (fase 2), SCP-106 (fase 3), SCP-939 (fase 4) e SCP-682 (fase 5). Cada uma entra

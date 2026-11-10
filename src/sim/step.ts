@@ -1,8 +1,9 @@
-// Um passo da simulação: costura jogador, armas, portas, pickups, IA, segredos, gatilhos e saída. Lógica pura.
+// Um passo da simulação: costura jogador, armas, portas, perigos, pickups, IA (e chefe), segredos, gatilhos e saída. Lógica pura.
 import { avancarInimigos } from './ai/comum';
 import { avancarPortas, solidoDe, usar } from './doors';
 import type { SimEvent } from './eventos';
 import { coordDe, type Coord, type Vec2 } from './grid';
+import { avancarPerigos } from './perigos';
 import { coletar } from './pickups';
 import { moverJogador, olhar } from './player';
 import { suavizarTensao, tensaoAlvo } from './tension';
@@ -83,8 +84,8 @@ export function step(w: World, input: InputFrame, dt: number): SimEvent[] {
   eventos.push(...atirar(w, input, dt), ...avancarProjeteis(w, dt), ...avancarNuvens(w, dt));
   if (w.estado !== 'jogando') return eventos;
 
-  // 5. portas e pickups
-  eventos.push(...avancarPortas(w, dt), ...coletar(w));
+  // 5. portas, perigos e pickups
+  eventos.push(...avancarPortas(w, dt), ...avancarPerigos(w, dt), ...coletar(w));
 
   // 6. inimigos, com os ruídos deste passo
   const ruidos = eventos.flatMap((e) => (e.tipo === 'ruido' ? [{ pos: e.pos, raio: e.raio }] : []));
@@ -101,8 +102,9 @@ export function step(w: World, input: InputFrame, dt: number): SimEvent[] {
   // 9. cronômetro
   eventos.push(...avancarCronometro(w, dt));
 
-  // 10. saída
-  if (w.estado === 'jogando' && naCelula(w.jogador.pos, w.fase.saida)) {
+  // 10. saída (com chefe, só depois de morto)
+  const chefeVivo = w.chefe !== null && w.chefe.fase !== 'morto';
+  if (w.estado === 'jogando' && !chefeVivo && naCelula(w.jogador.pos, w.fase.saida)) {
     w.estado = 'concluida';
     eventos.push({ tipo: 'fase_concluida' });
   }

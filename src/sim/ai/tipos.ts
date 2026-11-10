@@ -24,6 +24,13 @@ export const TIPOS: Record<string, TipoInimigo> = {
     dano: 12, alcanceAtaque: 16, cadencia: 1.6, preparo: 0.5, dor: 0.25,
     distanciaIdeal: 9, projetil: { velocidade: 11, raio: 0.15 },
   },
+  // chefe da fase 1: a IA é `ai/chefe096.ts` (regras em `CHEFE_096`); `dor` 0 = não para ao levar dano
+  entidade096: {
+    arquetipo: 'avancador', vida: 900, velocidade: 8.2, raio: 0.45, altura: 2.4,
+    visao: 60, visaoEscuro: 60, cone: 2 * Math.PI, audicao: 0,
+    dano: 70, alcanceAtaque: 1.3, cadencia: 1.4, preparo: 0.45, dor: 0,
+    distanciaIdeal: 0, projetil: null,
+  },
 };
 
 /** Tipo pelo nome; erro claro se não existe. */

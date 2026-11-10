@@ -30,5 +30,11 @@ export type SimEvent =
   | { tipo: 'som'; id: string }
   | { tipo: 'alarme'; ligado: boolean }
   | { tipo: 'luz'; grupo: string; ligada: boolean }
+  | { tipo: 'chefe_desperta' }
+  | { tipo: 'chefe_arromba'; porta: string }
+  | { tipo: 'chefe_investida' }
+  | { tipo: 'chefe_passo'; pos: Vec2 }            // a cada CHEFE_096.passoMetros andados (perseguição e investida)
+  | { tipo: 'chefe_morto' }
+  | { tipo: 'perigo'; id: string; estado: 'fecha' | 'abre' | 'recarregando' }
   | { tipo: 'jogador_morto' }
   | { tipo: 'fase_concluida' };

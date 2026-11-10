@@ -4,8 +4,10 @@ import { solidoDe } from '../sim/doors';
 import type { LevelDef } from '../sim/fase';
 import { caminho, centro, coordDe, DEGRAU, passavel, SALTO, visivel, type Coord, type Solido, type Vec2 } from '../sim/grid';
 import { resolverOnde } from '../sim/onde';
+import { celulaFechada } from '../sim/perigos';
 import { PASSO, step } from '../sim/step';
 import { criarWorld, INPUT_VAZIO, type Inimigo, type InputFrame, type Jogador, type Porta, type World } from '../sim/world';
+import { celulasDe } from './alcance';
 
 export interface ResultadoRobo { concluiu: boolean; passos: number; motivo: string }
 export interface OpcoesRobo { semInimigos?: boolean }
@@ -78,7 +80,9 @@ function barreira(w: World, p: Porta): boolean {
 
 /**
  * Objetivo, em ordem: cartão que abre porta ainda barrada; pickup, terminal ou área de gatilho que
- * abre porta barrada; a saída. Só vale objetivo com rota (portas barradas são sólidas no plano).
+ * abre porta barrada; área de gatilho que cria (`spawn`) um grupo cuja morte (`grupo_morto`) abre
+ * porta barrada (sala de combate); a saída. Só vale objetivo com rota (portas barradas são sólidas
+ * no plano; comportas não entram no plano: o robô espera diante delas).
  */
 function planejar(w: World, descartados: ReadonlySet<string>): Objetivo | null {
   const j = w.jogador;
@@ -116,11 +120,15 @@ function planejar(w: World, descartados: ReadonlySet<string>): Objetivo | null {
   }
   for (const { id, quando: q } of uteis) {
     if (q.tipo !== 'area') continue;
-    const celulas: Vec2[] = [];
-    for (let row = q.area[1]; row < q.area[1] + q.area[3]; row++) {
-      for (let col = q.area[0]; col < q.area[0] + q.area[2]; col++) celulas.push(centro([col, row]));
-    }
-    const o = rotaAte(`gatilho:${id}`, celulas);
+    const o = rotaAte(`gatilho:${id}`, celulasDe(q.area).map(centro));
+    if (o) return o;
+  }
+  // sala de combate: os inimigos criados morrem no passo seguinte com `semInimigos`, e a cadeia dispara
+  const gruposUteis = new Set(uteis.flatMap(({ quando: q }) => (q.tipo === 'grupo_morto' ? [q.grupo] : [])));
+  for (const { id, quando: q, faz } of w.fase.gatilhos) {
+    if (q.tipo !== 'area' || w.gatilhosFeitos.has(id)) continue;
+    const criaGrupoUtil = faz.some((a) => a.acao === 'spawn' && a.inimigos.some((d) => d.grupo !== undefined && gruposUteis.has(d.grupo)));
+    const o = criaGrupoUtil ? rotaAte(`gatilho:${id}`, celulasDe(q.area).map(centro)) : null;
     if (o) return o;
   }
   return rotaAte('saida', [centro(w.fase.saida)]);
@@ -158,6 +166,14 @@ function portaParaAbrir(w: World, rota: readonly Vec2[]): Porta | null {
     if (p.estado === 'fechada' || (p.estado === 'trancada' && podeAbrir(w, p))) return p;
   }
   return null;
+}
+
+/** Comporta fechada (perigo ativo) nos próximos pontos da rota. */
+function comportaNaFrente(w: World, rota: readonly Vec2[]): boolean {
+  return rota.slice(0, 2).some((p) => {
+    const [col, row] = coordDe(p);
+    return celulaFechada(w, col, row);
+  });
 }
 
 /**
@@ -226,6 +242,13 @@ export function decidir(w: World, r: Robo): InputFrame {
   r.semCaminho = 0;
   if (desistiu(r, o, j.pos)) return fim();
 
+  avancarRota(o, j.pos);
+  if (comportaNaFrente(w, o.rota)) {
+    // espera parado; a janela de "preso" recomeça para não virar desvio ao fim da espera
+    r.ancora = { x: j.pos.x, z: j.pos.z };
+    r.ancoraT = 0;
+    return fim();
+  }
   vigiarPreso(r, j.pos);
   if (r.desvio > 0) {
     r.desvio -= PASSO;
@@ -234,7 +257,6 @@ export function decidir(w: World, r: Robo): InputFrame {
     return fim();
   }
 
-  avancarRota(o, j.pos);
   const chegou = o.rota.length === 0 || (o.rota.length === 1 && distancia(j.pos, o.rota[0]) < CHEGADA);
   if (o.usarEm && distancia(j.pos, o.usarEm) <= PORTA.alcanceUso - FOLGA_USO && chegou) {
     apertarUsar(o.usarEm);
@@ -262,7 +284,8 @@ export function decidir(w: World, r: Robo): InputFrame {
 export function percorrer(f: LevelDef, limiteSegundos = 600, opcoes: OpcoesRobo = {}): ResultadoRobo {
   const semInimigos = opcoes.semInimigos ?? true;
   const w = criarWorld(f);
-  // sem inimigos: todos contam como mortos (os iniciais e os de `spawn`), e `grupo_morto` dispara
+  // sem inimigos: todos contam como mortos (os iniciais, os de `spawn` e o chefe, que é um Inimigo em
+  // `w.inimigos`: a IA dele passa à fase 'morto' no passo seguinte), e `grupo_morto` e `chefe_morto` disparam
   const matar = () => {
     if (semInimigos) for (const i of w.inimigos) i.modo = 'morto';
   };

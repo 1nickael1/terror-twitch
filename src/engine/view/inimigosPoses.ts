@@ -12,14 +12,16 @@ export interface Pose {
   corpoX: number; corpoY: number; corpoZ: number; pelveY: number;
   troncoX: number; troncoZ: number; cabecaX: number; cabecaZ: number;
   bracoEX: number; bracoEZ: number; bracoDX: number; bracoDZ: number; pernaEX: number; pernaDX: number;
+  /** dobra do cotovelo (só nos moldes com antebraço; positivo = mão para a frente e para cima) */
+  antebracoEX: number; antebracoDX: number;
 }
 export const CHAVES = [
   'corpoX', 'corpoY', 'corpoZ', 'pelveY', 'troncoX', 'troncoZ', 'cabecaX', 'cabecaZ',
-  'bracoEX', 'bracoEZ', 'bracoDX', 'bracoDZ', 'pernaEX', 'pernaDX',
+  'bracoEX', 'bracoEZ', 'bracoDX', 'bracoDZ', 'pernaEX', 'pernaDX', 'antebracoEX', 'antebracoDX',
 ] as const;
 export const novaPose = (): Pose => ({
   corpoX: 0, corpoY: 0, corpoZ: 0, pelveY: 0, troncoX: 0, troncoZ: 0, cabecaX: 0, cabecaZ: 0,
-  bracoEX: 0, bracoEZ: 0, bracoDX: 0, bracoDZ: 0, pernaEX: 0, pernaDX: 0,
+  bracoEX: 0, bracoEZ: 0, bracoDX: 0, bracoDZ: 0, pernaEX: 0, pernaDX: 0, antebracoEX: 0, antebracoDX: 0,
 });
 
 /** Estado visual guardado pela view (tempo, velocidade medida, fase da passada, golpe, dor). */

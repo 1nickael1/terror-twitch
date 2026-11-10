@@ -1,6 +1,9 @@
 // Estado do mundo da simulação: tipos, input vazio, criação do mundo a partir da fase e checkpoint.
-import type { ArmaId, LevelDef, NivelCartao, PickupDef, TipoMunicao } from './fase';
+import type { ArmaId, ChefeDef, LevelDef, NivelCartao, PickupDef, TipoMunicao } from './fase';
+import { CHEFE_096 } from './balance';
 import { alturaPiso, centro, criarGrid, type Coord, type Grid, type Vec2 } from './grid';
+import { modoDoChefe } from './ai/chefe096';
+import { avancadorDeChefe } from './ai/chefes';
 import { criarInimigo } from './ai/comum';
 import { resolverOnde } from './onde';
 import { criarJogador } from './player';
@@ -48,7 +51,21 @@ export interface Inimigo {
   destinoRota: Coord | null;   // célula do último destino pedido a `irPara` (zera `semRota` ao mudar)
   rotasCalculadas: number;     // quantas vezes calculou rota (métrica de depuração)
   alertado: boolean;           // já emitiu `inimigo_alerta`; desliga ao voltar à patrulha
+  refugio: Vec2 | null;        // avançador vendo o jogador sem rota até ele: célula alcançável mais próxima dele
 }
+export type FaseChefe = 'inerte' | 'despertando' | 'perseguicao' | 'arrombando' | 'investida' | 'pausa' | 'morto';
+export interface EstadoChefe {
+  inimigoId: number;          // o chefe é um Inimigo em w.inimigos (tiro, dano e views valem)
+  fase: FaseChefe;
+  timer: number;              // segundos restantes da fase (despertando, arrombando, investida, pausa); na perseguição, do preparo do golpe;
+                              // na investida, acima de CHEFE_096.investidaMax é o preparo parado
+  olhar: number;              // segundos acumulados de mira enquanto inerte
+  naArena: boolean;
+  portaAlvo: string | null;   // porta sendo arrombada
+  investida: Vec2 | null;     // direção da investida atual (unitária)
+  passo: number;              // metros andados desde o último `chefe_passo`
+}
+export interface EstadoPerigo { id: string; ativo: number; recarga: number }   // segundos restantes
 export interface Porta {
   id: string; coord: Coord; estado: 'fechada' | 'abrindo' | 'aberta' | 'fechando' | 'trancada'; abertura: number; exige: NivelCartao | null;
   trancarAoFechar: boolean;   // ao terminar de fechar, vira 'trancada' em vez de 'fechada'
@@ -68,6 +85,8 @@ export interface World {
   checkpointPendente: boolean;   // ação `checkpoint` neste passo: grava no fim dos gatilhos (fora do JSON)
   checkpointsUsados: number[];   // índices de `fase.checkpoints` já pisados (cada um grava uma vez)
   proximoId: number;
+  chefe: EstadoChefe | null;     // null: fase sem chefe
+  perigos: EstadoPerigo[];       // um por `fase.chefe.perigos`, na mesma ordem
 }
 
 /** Mundo inicial da fase: grade, jogador no `P` com o arsenal da fase, portas, pickups, inimigos e o primeiro checkpoint. */
@@ -92,6 +111,7 @@ export function criarWorld(fase: LevelDef): World {
     alarme: false, luzesDesligadas: new Set(), cronometro: null,
     stats: { tempo: 0, mortos: 0, totalInimigos: 0, segredos: [], documentos: [] },
     tensao: 0, estado: 'jogando', checkpoint: '', checkpointPendente: false, checkpointsUsados: [], proximoId: 1,
+    chefe: null, perigos: (fase.chefe?.perigos ?? []).map((p) => ({ id: p.id, ativo: 0, recarga: 0 })),
   };
   // terminais e documentos são resolvidos no `usar`; validar aqui faz um símbolo errado falhar já na criação
   for (const def of [...fase.terminais, ...fase.documentos]) resolverOnde(grid, def.em);
@@ -99,8 +119,19 @@ export function criarWorld(fase: LevelDef): World {
     w.inimigos.push(criarInimigo(w, def));
     w.stats.totalInimigos++;
   }
+  if (fase.chefe) criarChefe(w, fase.chefe);
   gravarCheckpoint(w);
   return w;
+}
+
+/** Cria o inimigo do chefe (conta no total) e o estado dele, inerte. */
+function criarChefe(w: World, def: ChefeDef): void {
+  if (!avancadorDeChefe(def.tipo)) throw new Error(`Fase "${w.fase.id}": "${def.tipo}" não é um tipo de chefe`);
+  resolverOnde(w.grid, def.retomada);   // símbolo errado falha já na criação
+  const i = criarInimigo(w, { em: def.em, tipo: def.tipo, yaw: def.yaw });
+  w.inimigos.push(i);
+  w.stats.totalInimigos++;
+  w.chefe = { inimigoId: i.id, fase: 'inerte', timer: 0, olhar: 0, naArena: false, portaAlvo: null, investida: null, passo: 0 };
 }
 
 /** O que o checkpoint guarda. Os `Set` viram arrays no JSON. */
@@ -108,6 +139,7 @@ interface Snapshot {
   jogador: Jogador; inimigos: Inimigo[]; portas: Porta[]; pickups: Pickup[];
   gatilhosFeitos: string[]; gatilhosAtivos: string[]; alarme: boolean; luzesDesligadas: string[];
   stats: Stats; proximoId: number; semente: number; cronometro: number | null; checkpointsUsados: number[];
+  chefe: EstadoChefe | null; perigos: EstadoPerigo[];
 }
 
 /** Grava em `w.checkpoint` o estado para recomeçar. */
@@ -116,7 +148,7 @@ export function gravarCheckpoint(w: World): void {
     jogador: w.jogador, inimigos: w.inimigos, portas: w.portas, pickups: w.pickups,
     gatilhosFeitos: [...w.gatilhosFeitos], gatilhosAtivos: [...w.gatilhosAtivos], alarme: w.alarme,
     luzesDesligadas: [...w.luzesDesligadas], stats: w.stats, proximoId: w.proximoId, semente: w.semente,
-    cronometro: w.cronometro, checkpointsUsados: w.checkpointsUsados,
+    cronometro: w.cronometro, checkpointsUsados: w.checkpointsUsados, chefe: w.chefe, perigos: w.perigos,
   };
   w.checkpoint = JSON.stringify(s);
 }
@@ -145,5 +177,28 @@ export function restaurarCheckpoint(w: World): void {
   w.checkpointsUsados = s.checkpointsUsados;
   w.projeteis = [];
   w.nuvens = [];
+  w.chefe = s.chefe;
+  w.perigos = s.perigos;
+  retomarChefe(w);
   w.estado = 'jogando';
+}
+
+/** Chefe acordado (nem inerte nem morto) no snapshot: volta na `retomada`, `despertando`. */
+function retomarChefe(w: World): void {
+  const c = w.chefe;
+  const def = w.fase.chefe;
+  if (!c || !def || c.fase === 'inerte' || c.fase === 'morto') return;
+  const i = w.inimigos.find((x) => x.id === c.inimigoId);
+  // morto no mesmo passo em que o checkpoint gravou (comporta num gatilho): a fase vira 'morto' no próximo passo
+  if (!i || i.modo === 'morto') return;
+  i.pos = centro(resolverOnde(w.grid, def.retomada));
+  i.y = alturaPiso(w.grid, i.pos);
+  i.rota = [];
+  i.rotaEm = 0;
+  i.espera = 0;
+  c.fase = 'despertando';
+  i.modo = modoDoChefe(c.fase);
+  c.timer = CHEFE_096.retomada;
+  c.portaAlvo = null;
+  c.investida = null;
 }

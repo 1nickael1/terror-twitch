@@ -2,7 +2,7 @@
 // limita a repetição e qual voz cortar. Sem `three`, DOM nem WebAudio (testável no node).
 import type { ArmaId } from '../sim/fase';
 import type { SimEvent } from '../sim/eventos';
-import { alturaPiso, celula, centro, visivel, type Coord, type Grid, type Solido, type Vec2 } from '../sim/grid';
+import { alturaPiso, CELL, celula, centro, visivel, type Coord, type Grid, type Solido, type Vec2 } from '../sim/grid';
 import type { World } from '../sim/world';
 
 /** Sons avulsos (uma voz cada). Os laços (ambiente, drone, alarme) ficam fora desta lista. */
@@ -11,6 +11,11 @@ export const NOMES_SOM = [
   'passo', 'pulo', 'pouso', 'portaMotor', 'portaBaque', 'portaNegada', 'pickup', 'armaTrocada', 'semMunicao',
   'dorJogador', 'grunhidoAlerta', 'grunhidoAtaque', 'dorInimigo', 'morteInimigo', 'projetil', 'bip',
   'bipDiscreto', 'checkpoint', 'segredo', 'morteJogador', 'faseConcluida',
+  // chefe e comportas
+  'chefeDesperta', 'chefeArromba', 'chefeInvestida', 'chefeGolpe', 'chefeMorto', 'chefePasso',
+  'comportaFecha', 'comportaAbre', 'comportaRecusa',
+  // ação `som` dos gatilhos (ids do catálogo)
+  'sireneCurta', 'estalo',
 ] as const;
 export type NomeSom = (typeof NOMES_SOM)[number];
 
@@ -24,8 +29,10 @@ export const TIRO_POR_ARMA: Record<ArmaId, NomeSom> = {
   pistola: 'tiroPistola', escopeta: 'tiroEscopeta', smg: 'tiroSmg', lancador: 'disparoLancador',
 };
 
-/** Ids do evento `som` (ação de gatilho) que têm som de mesmo nome. */
-export const SONS_DE_GATILHO: ReadonlySet<string> = new Set<NomeSom>(['bip']);
+/** Som de cada id da ação `som` dos gatilhos (`SONS_DE_EVENTO` do catálogo). */
+export const SOM_DE_GATILHO: Readonly<Record<string, NomeSom>> = Object.freeze({
+  bip: 'bip', sirene_curta: 'sireneCurta', estalo: 'estalo',
+});
 
 /** altura da "boca" do inimigo acima do piso dele */
 const ALTURA_INIMIGO = 1.3;
@@ -33,10 +40,60 @@ const ALTURA_INIMIGO = 1.3;
 const ALTURA_PORTA = 1.5;
 /** altura do centro da explosão acima do piso */
 const ALTURA_EXPLOSAO = 0.6;
+/** altura da cabeça do chefe (2,4 m) acima do piso dele */
+const ALTURA_CHEFE = 2.2;
+/** altura do passo do chefe acima do piso (o pé batendo no chão) */
+const ALTURA_PASSO_CHEFE = 0.1;
+/** altura do mecanismo da comporta acima do piso */
+const ALTURA_COMPORTA = 1.5;
 
 function inimigo(w: World, id: number, som: NomeSom): PedidoSom | null {
   const i = w.inimigos.find((x) => x.id === id);
   return i ? { som, pos: { x: i.pos.x, z: i.pos.z }, y: i.y + ALTURA_INIMIGO } : null;
+}
+
+/** Cabeça do chefe (null sem chefe). */
+function cabecaDoChefe(w: World): { pos: Vec2; y: number } | null {
+  const id = w.chefe?.inimigoId;
+  const i = id === undefined ? undefined : w.inimigos.find((x) => x.id === id);
+  return i ? { pos: { x: i.pos.x, z: i.pos.z }, y: i.y + ALTURA_CHEFE } : null;
+}
+
+/** Som na cabeça do chefe (null sem chefe). */
+function doChefe(w: World, som: NomeSom): PedidoSom | null {
+  const c = cabecaDoChefe(w);
+  return c ? { som, ...c } : null;
+}
+
+/**
+ * Eventos genéricos de inimigo: os do chefe (um `Inimigo` para a simulação) não usam os sons dos
+ * comuns. Dor, morte e alerta dele ficam calados (os sons vêm dos eventos `chefe_*`); o golpe
+ * tem som próprio.
+ */
+function deInimigo(w: World, id: number, som: NomeSom): PedidoSom | null {
+  if (w.chefe?.inimigoId !== id) return inimigo(w, id, som);
+  return som === 'grunhidoAtaque' ? doChefe(w, 'chefeGolpe') : null;
+}
+
+/** Comporta: fecha e abre no centro da área; a recusa (recarregando) é retorno ao jogador. */
+function daComporta(w: World, id: string, estado: 'fecha' | 'abre' | 'recarregando'): PedidoSom | null {
+  const d = w.fase.chefe?.perigos.find((p) => p.id === id);
+  if (!d) return null;
+  if (estado === 'recarregando') return { som: 'comportaRecusa', pos: null };
+  const [c0, r0, larg, alt] = d.area;
+  const pos = { x: (c0 + larg / 2) * CELL, z: (r0 + alt / 2) * CELL };
+  return {
+    som: estado === 'fecha' ? 'comportaFecha' : 'comportaAbre', pos,
+    y: celula(w.grid, c0, r0).piso + ALTURA_COMPORTA,
+  };
+}
+
+/** Onde o lamento do chefe inerte toca (laço posicional), ou null se ele não está inerte. */
+export function lamentoDoChefe(w: World): { pos: Vec2; y: number } | null {
+  if (w.chefe?.fase !== 'inerte') return null;
+  const c = cabecaDoChefe(w);
+  // curvado: a voz sai mais baixa que a cabeça de pé
+  return c ? { pos: c.pos, y: c.y - 0.5 } : null;
 }
 
 /** O som que o evento pede, ou `null` para eventos sem som. Só lê o mundo. */
@@ -74,13 +131,13 @@ export function somDoEvento(e: SimEvent, w: World): PedidoSom | null {
     case 'dano_jogador':
       return { som: 'dorJogador', pos: null };
     case 'inimigo_alerta':
-      return inimigo(w, e.id, 'grunhidoAlerta');
+      return deInimigo(w, e.id, 'grunhidoAlerta');
     case 'inimigo_ataque':
-      return inimigo(w, e.id, 'grunhidoAtaque');
+      return deInimigo(w, e.id, 'grunhidoAtaque');
     case 'inimigo_dor':
-      return inimigo(w, e.id, 'dorInimigo');
+      return deInimigo(w, e.id, 'dorInimigo');
     case 'inimigo_morto':
-      return inimigo(w, e.id, 'morteInimigo');
+      return deInimigo(w, e.id, 'morteInimigo');
     case 'projetil': {
       // o projétil do jogador (lançador) já soa no `tiro`
       const p = w.projeteis.find((x) => x.id === e.id);
@@ -96,7 +153,23 @@ export function somDoEvento(e: SimEvent, w: World): PedidoSom | null {
     case 'mensagem':
       return { som: 'bipDiscreto', pos: null };
     case 'som':
-      return SONS_DE_GATILHO.has(e.id) ? { som: e.id as NomeSom, pos: null } : null;
+      return Object.prototype.hasOwnProperty.call(SOM_DE_GATILHO, e.id) ? { som: SOM_DE_GATILHO[e.id], pos: null } : null;
+    case 'chefe_desperta':
+      return doChefe(w, 'chefeDesperta');
+    case 'chefe_investida':
+      return doChefe(w, 'chefeInvestida');
+    case 'chefe_morto':
+      return { som: 'chefeMorto', pos: null };
+    case 'chefe_passo':
+      return { som: 'chefePasso', pos: { x: e.pos.x, z: e.pos.z }, y: alturaPiso(w.grid, e.pos) + ALTURA_PASSO_CHEFE };
+    case 'chefe_arromba': {
+      const p = w.portas.find((x) => x.id === e.porta);
+      if (!p) return null;
+      const [col, row] = p.coord;
+      return { som: 'chefeArromba', pos: centro(p.coord), y: celula(w.grid, col, row).piso + ALTURA_PORTA, celulaPorta: p.coord };
+    }
+    case 'perigo':
+      return daComporta(w, e.id, e.estado);
     case 'jogador_morto':
       return { som: 'morteJogador', pos: null };
     case 'fase_concluida':

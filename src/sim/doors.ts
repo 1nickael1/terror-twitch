@@ -3,15 +3,17 @@ import { PORTA } from './balance';
 import type { SimEvent } from './eventos';
 import { centro, coordDe, type Solido, type Vec2 } from './grid';
 import { resolverOnde } from './onde';
+import { celulaFechada } from './perigos';
 import { frente } from './player';
 import type { Porta, World } from './world';
 
 /** Metade do cone de uso (60°): o alvo precisa estar até aqui da direção do olhar. */
 const MEIO_CONE_USO = Math.PI / 3;
 
-/** A porta ocupa a célula enquanto não abriu o bastante para passar. */
+/** A porta ocupa a célula enquanto não abriu o bastante para passar; perigo ativo fecha as células da área. */
 export function solidoDe(w: World): Solido {
-  return (col, row) => w.portas.some((p) => p.coord[0] === col && p.coord[1] === row && p.abertura < PORTA.livreEm);
+  return (col, row) => w.portas.some((p) => p.coord[0] === col && p.coord[1] === row && p.abertura < PORTA.livreEm)
+    || celulaFechada(w, col, row);
 }
 
 /** Jogador ou inimigo vivo na célula da porta. */

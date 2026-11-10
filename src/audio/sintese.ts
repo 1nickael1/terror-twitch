@@ -11,7 +11,7 @@ export interface Bancada {
 }
 
 /** Inicia a fonte em `t` (com `offset`, para buffers), agenda o fim e a registra no coletor da bancada. */
-function iniciar<T extends AudioScheduledSourceNode>(b: Bancada, f: T, t: number, fim: number, offset?: number): T {
+export function iniciar<T extends AudioScheduledSourceNode>(b: Bancada, f: T, t: number, fim: number, offset?: number): T {
   // `OscillatorNode.start` ignora o segundo argumento
   (f as AudioScheduledSourceNode as AudioBufferSourceNode).start(t, offset);
   b.coletor?.push(f);
@@ -23,7 +23,7 @@ export type Fontes = AudioScheduledSourceNode[];
 export type Sintese = (b: Bancada, destino: AudioNode, t: number) => Fontes;
 
 /** piso das rampas exponenciais (não pode chegar a 0) */
-const MIN = 0.0001;
+export const MIN = 0.0001;
 
 export function criarRuidoBranco(ctx: AudioContext, segundos = 2): AudioBuffer {
   const n = Math.floor(ctx.sampleRate * segundos);
@@ -53,10 +53,10 @@ export function criarRuidoRosa(ctx: AudioContext, segundos = 4): AudioBuffer {
   return buf;
 }
 
-// ---------- blocos ----------
+// ---------- blocos (também usados por `sinteseChefe.ts` e `sinteseCenario.ts`) ----------
 
 /** Envelope: 0 → `pico` em `ataque` s, queda exponencial até quase 0 em `queda` s. */
-function envelope(ctx: AudioContext, destino: AudioNode, t: number, ataque: number, pico: number, queda: number): GainNode {
+export function envelope(ctx: AudioContext, destino: AudioNode, t: number, ataque: number, pico: number, queda: number): GainNode {
   const g = ctx.createGain();
   g.gain.setValueAtTime(MIN, t);
   g.gain.exponentialRampToValueAtTime(Math.max(MIN, pico), t + ataque);
@@ -65,7 +65,7 @@ function envelope(ctx: AudioContext, destino: AudioNode, t: number, ataque: numb
   return g;
 }
 
-function filtro(ctx: AudioContext, destino: AudioNode, tipo: BiquadFilterType, freq: number, q = 0.7): BiquadFilterNode {
+export function filtro(ctx: AudioContext, destino: AudioNode, tipo: BiquadFilterType, freq: number, q = 0.7): BiquadFilterNode {
   const f = ctx.createBiquadFilter();
   f.type = tipo;
   f.frequency.value = freq;
@@ -75,7 +75,7 @@ function filtro(ctx: AudioContext, destino: AudioNode, tipo: BiquadFilterType, f
 }
 
 /** Trecho de ruído branco começando num ponto aleatório do buffer. */
-function ruido(b: Bancada, destino: AudioNode, t: number, dur: number, taxa = 1): AudioBufferSourceNode {
+export function ruido(b: Bancada, destino: AudioNode, t: number, dur: number, taxa = 1): AudioBufferSourceNode {
   const s = b.ctx.createBufferSource();
   s.buffer = b.ruido;
   s.loop = true;
@@ -85,7 +85,7 @@ function ruido(b: Bancada, destino: AudioNode, t: number, dur: number, taxa = 1)
 }
 
 /** Oscilador com queda exponencial de frequência `f0 → f1` em `dur` s. */
-function tom(b: Bancada, destino: AudioNode, tipo: OscillatorType, f0: number, f1: number, t: number, dur: number): OscillatorNode {
+export function tom(b: Bancada, destino: AudioNode, tipo: OscillatorType, f0: number, f1: number, t: number, dur: number): OscillatorNode {
   const o = b.ctx.createOscillator();
   o.type = tipo;
   o.frequency.setValueAtTime(f0, t);
@@ -95,7 +95,7 @@ function tom(b: Bancada, destino: AudioNode, tipo: OscillatorType, f0: number, f
 }
 
 /** pequena variação aleatória (±fração) para repetições não soarem idênticas */
-function variar(v: number, fracao = 0.08): number {
+export function variar(v: number, fracao = 0.08): number {
   return v * (1 + (Math.random() * 2 - 1) * fracao);
 }
 
@@ -197,7 +197,7 @@ export const dorJogador: Sintese = (b, d, t) => {
 // ---------- portas ----------
 
 /** Baque seco da porta batendo no batente. */
-function baque(b: Bancada, d: AudioNode, t: number, ganho: number): Fontes {
+export function baque(b: Bancada, d: AudioNode, t: number, ganho: number): Fontes {
   const { ctx } = b;
   const et = envelope(ctx, d, t, 0.003, ganho, 0.18);
   const er = envelope(ctx, d, t, 0.002, ganho * 0.6, 0.12);
@@ -345,7 +345,7 @@ export interface Laco { saida: GainNode; parar: (t: number) => void }
 /** subida do laço ao entrar (constante de tempo, s): sem degrau */
 const ENTRADA_LACO = 0.05;
 
-function laco(ctx: AudioContext, destino: AudioNode, fontes: AudioScheduledSourceNode[], saida: GainNode, alvo: number): Laco {
+export function laco(ctx: AudioContext, destino: AudioNode, fontes: AudioScheduledSourceNode[], saida: GainNode, alvo: number): Laco {
   const t = ctx.currentTime;
   saida.gain.setValueAtTime(0, t);
   if (alvo > 0) saida.gain.setTargetAtTime(alvo, t, ENTRADA_LACO);

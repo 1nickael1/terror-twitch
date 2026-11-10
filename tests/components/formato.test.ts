@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { formatarTempo, ladoDoDano, nomeDoPickup, textoDoEvento } from '../../src/components/formato';
+import { barraDoChefe, formatarTempo, ladoDoDano, nomeDoPickup, textoDoEvento } from '../../src/components/formato';
+import { criarWorld, type World } from '../../src/sim/world';
+import { faseComChefe, faseMinima } from '../sim/ajuda';
 import type { PickupDef } from '../../src/sim/fase';
 
 describe('formatarTempo', () => {
@@ -52,5 +54,46 @@ describe('ladoDoDano', () => {
   it('gira junto com o jogador e sem direção vira null', () => {
     expect(ladoDoDano(pos, Math.PI / 2, { x: -5, z: 0 })).toBe('frente');
     expect(ladoDoDano(pos, 0, { x: 0, z: 0 })).toBeNull();
+  });
+});
+
+describe('barraDoChefe', () => {
+  const PLANTA = ['#######', '#P....#', '#######'].join('\n');
+  const comChefe = () => criarWorld(faseComChefe(PLANTA, { em: [5, 1], nome: 'SCP-096' }));
+  const chefeDe = (w: World) => w.inimigos.find((i) => i.id === w.chefe?.inimigoId);
+
+  it('sem chefe: nenhuma barra', () => {
+    expect(barraDoChefe(criarWorld(faseMinima(PLANTA)))).toBeNull();
+  });
+
+  it('inerte ou morto: nenhuma barra', () => {
+    const w = comChefe();
+    expect(barraDoChefe(w)).toBeNull();
+    if (w.chefe) w.chefe.fase = 'morto';
+    expect(barraDoChefe(w)).toBeNull();
+  });
+
+  it('acordado: nome da fase e vida em 0..1 arredondada a 1%', () => {
+    const w = comChefe();
+    for (const fase of ['despertando', 'perseguicao', 'arrombando', 'investida', 'pausa'] as const) {
+      if (w.chefe) w.chefe.fase = fase;
+      expect(barraDoChefe(w)).toEqual({ nome: 'SCP-096', vida: 1 });
+    }
+    const i = chefeDe(w);
+    if (i) i.vida = 900 * 0.4567;
+    expect(barraDoChefe(w)).toEqual({ nome: 'SCP-096', vida: 0.46 });
+    if (i) i.vida = 1;
+    expect(barraDoChefe(w)?.vida).toBe(0);
+  });
+
+  it('Inimigo do chefe já morto (a fase só vira `morto` no passo seguinte): nenhuma barra', () => {
+    const w = comChefe();
+    if (w.chefe) w.chefe.fase = 'perseguicao';
+    const i = chefeDe(w);
+    if (i) {
+      i.vida = 0;
+      i.modo = 'morto';
+    }
+    expect(barraDoChefe(w)).toBeNull();
   });
 });

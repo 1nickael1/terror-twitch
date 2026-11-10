@@ -1,13 +1,17 @@
-// Som da fase carregada: cama de ambiente, drone de tensão, alarme e os sons dos eventos do quadro.
+// Som da fase carregada: cama de ambiente, drone de tensão, alarme, o lamento posicional do chefe
+// inerte e os sons dos eventos do quadro.
 // Só lê o World; nasce e morre junto com a fase. Antes de o mixer ter contexto, não faz nada.
 import { solidoDe } from '../sim/doors';
 import type { SimEvent } from '../sim/eventos';
 import type { LevelDef } from '../sim/fase';
 import type { World } from '../sim/world';
+import { LamentoChefe } from './lamentoChefe';
 import type { Mixer } from './Mixer';
 import { atualizarOuvinte, criarCadeiaPosicional } from './posicional';
-import { audivel, LimitadorSons, ocluido, somDoEvento, type NomeSom, type Ouvinte } from './regras';
+import { audivel, lamentoDoChefe, LimitadorSons, ocluido, somDoEvento, type NomeSom, type Ouvinte } from './regras';
 import * as S from './sintese';
+import * as C from './sinteseCenario';
+import * as CH from './sinteseChefe';
 
 const SONS: Record<NomeSom, S.Sintese> = {
   tiroPistola: S.tiroPistola, tiroEscopeta: S.tiroEscopeta, tiroSmg: S.tiroSmg, disparoLancador: S.disparoLancador,
@@ -18,7 +22,14 @@ const SONS: Record<NomeSom, S.Sintese> = {
   dorInimigo: S.dorInimigo, morteInimigo: S.morteInimigo, projetil: S.projetil, bip: S.bip,
   bipDiscreto: S.bipDiscreto, checkpoint: S.checkpoint, segredo: S.segredo, morteJogador: S.morteJogador,
   faseConcluida: S.faseConcluida,
+  chefeDesperta: CH.chefeDesperta, chefeArromba: CH.chefeArromba, chefeInvestida: CH.chefeInvestida,
+  chefeGolpe: CH.chefeGolpe, chefeMorto: CH.chefeMorto, chefePasso: CH.chefePasso,
+  comportaFecha: CH.comportaFecha, comportaAbre: CH.comportaAbre, comportaRecusa: CH.comportaRecusa,
+  sireneCurta: C.sireneCurta, estalo: C.estalo,
 };
+
+/** s entre dois testes de oclusão do lamento (raio na grade) */
+const OCLUSAO_LAMENTO = 0.25;
 
 /** ganho do drone com tensão 0 e 1 */
 const DRONE_MIN = 0.03;
@@ -34,6 +45,8 @@ export class SomDaFase {
   private ambiente: S.Laco | null = null;
   private drone: S.Laco | null = null;
   private alarme: S.Laco | null = null;
+  private lamento: LamentoChefe | null = null;
+  private lamentoTestadoEm = -Infinity;
   private tensaoAplicada = -1;
   private descartado = false;
 
@@ -53,6 +66,7 @@ export class SomDaFase {
       const ctx = b.ctx;
       this.seguirTensao(ctx, world.tensao);
       this.seguirAlarme(b, efeitos, world.alarme);
+      this.seguirLamento(b, efeitos, world, ouvinte);
       // suspenso (pausa, aba oculta): nem ouvinte (automação acumulada) nem sons para tocar todos de uma vez depois
       if (ctx.state !== 'running') return;
       atualizarOuvinte(ctx, ouvinte);
@@ -75,6 +89,12 @@ export class SomDaFase {
       }
     }
     this.ambiente = this.drone = this.alarme = null;
+    try {
+      this.lamento?.parar();
+    } catch {
+      /* contexto já fechado */
+    }
+    this.lamento = null;
     this.ctx = null;
   }
 
@@ -83,7 +103,12 @@ export class SomDaFase {
     this.tensaoAplicada = -1;
     if (this.fase.ambiente.somDeFundo === 'zumbido') {
       this.ambiente = S.zumbido(b, efeitos, S.criarRuidoRosa(b.ctx));
+    } else if (this.fase.ambiente.somDeFundo === 'ventilacao') {
+      this.ambiente = C.ventilacao(b, efeitos, S.criarRuidoRosa(b.ctx));
     }
+    // contexto novo: o lamento antigo (de outro contexto) é refeito no próximo `seguirLamento`
+    this.lamento?.parar();
+    this.lamento = null;
     this.drone = S.drone(b, musica);
   }
 
@@ -102,6 +127,26 @@ export class SomDaFase {
     else if (!ligado && this.alarme) {
       this.alarme.parar(b.ctx.currentTime);
       this.alarme = null;
+    }
+  }
+
+  /** Lamento do chefe enquanto ele está inerte: nasce, acompanha a posição e a oclusão, e para. */
+  private seguirLamento(b: S.Bancada, efeitos: GainNode, world: World, ouvinte: Ouvinte): void {
+    const alvo = lamentoDoChefe(world);
+    if (!alvo) {
+      this.lamento?.parar();
+      this.lamento = null;
+      return;
+    }
+    if (!this.lamento) {
+      this.lamento = new LamentoChefe(b, efeitos, alvo.pos.x, alvo.y, alvo.pos.z);
+      this.lamentoTestadoEm = -Infinity;
+    }
+    this.lamento.mover(alvo.pos.x, alvo.y, alvo.pos.z);
+    const t = b.ctx.currentTime;
+    if (t - this.lamentoTestadoEm >= OCLUSAO_LAMENTO) {
+      this.lamentoTestadoEm = t;
+      this.lamento.abafar(ocluido(world.grid, ouvinte, alvo.pos, solidoDe(world)));
     }
   }
 

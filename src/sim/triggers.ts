@@ -1,9 +1,12 @@
 // Gatilhos de evento da fase: condições, ações e checkpoint. Lógica pura.
+import { despertarChefe } from './ai/chefe096';
 import { criarInimigo } from './ai/comum';
+import { tipoDe } from './ai/tipos';
 import { comandarPorta } from './doors';
 import type { SimEvent } from './eventos';
 import type { Acao, Area, Condicao } from './fase';
 import { alturaPiso, centro, coordDe, type Vec2 } from './grid';
+import { acionarPerigo } from './perigos';
 import { gravarCheckpoint, type World } from './world';
 
 /** O ponto está numa das células do retângulo [col, row, larg, alt]. */
@@ -24,8 +27,12 @@ function vale(w: World, c: Condicao, eventos: readonly SimEvent[]): boolean {
       const grupo = w.inimigos.filter((i) => i.grupo === c.grupo);
       return grupo.length > 0 && grupo.every((i) => i.modo === 'morto');
     }
-    case 'chefe_vida':
-      return false;   // o chefe entra no CP2
+    case 'chefe_vida': {
+      const i = w.chefe ? w.inimigos.find((x) => x.id === w.chefe!.inimigoId) : undefined;
+      return i !== undefined && i.vida / tipoDe(i.tipo).vida < c.abaixo;
+    }
+    case 'chefe_morto':
+      return w.chefe?.fase === 'morto';
   }
 }
 
@@ -67,8 +74,9 @@ export function executar(w: World, acao: Acao): SimEvent[] {
       w.cronometro = acao.segundos;
       return [];
     case 'chefe':
+      return despertarChefe(w);
     case 'perigo':
-      return [];   // entram no CP2; por ora, só o evento `gatilho` do disparo
+      return acionarPerigo(w, acao.id);
   }
 }
 

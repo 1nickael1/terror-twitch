@@ -1,9 +1,11 @@
 // Textos e contas puras da interface: tempo mm:ss, nome de pickup, mensagem do HUD a partir de um
-// evento da simulação e o lado de onde veio o dano.
+// evento da simulação, o lado de onde veio o dano e a barra de vida do chefe.
+import { tipoDe } from '../sim/ai/tipos';
 import { ARMAS } from '../sim/balance';
 import type { SimEvent } from '../sim/eventos';
 import type { PickupDef, TipoMunicao } from '../sim/fase';
 import type { Vec2 } from '../sim/grid';
+import type { World } from '../sim/world';
 
 export type LadoDano = 'frente' | 'tras' | 'esquerda' | 'direita';
 
@@ -59,4 +61,21 @@ export function ladoDoDano(pos: Vec2, yaw: number, de: Vec2): LadoDano | null {
   const r = Math.cos(yaw) * dx - Math.sin(yaw) * dz;
   if (Math.abs(f) >= Math.abs(r)) return f >= 0 ? 'frente' : 'tras';
   return r >= 0 ? 'direita' : 'esquerda';
+}
+
+export interface BarraChefe { nome: string; vida: number }
+
+/**
+ * Barra de vida do chefe: só com o chefe acordado (nem inerte nem morto, nem o `Inimigo` dele morto). `vida` em 0..1,
+ * arredondada a 1% (o snapshot do HUD só muda quando o valor exibido muda).
+ */
+export function barraDoChefe(w: World): BarraChefe | null {
+  const c = w.chefe;
+  const def = w.fase.chefe;
+  if (!c || !def || c.fase === 'inerte' || c.fase === 'morto') return null;
+  const i = w.inimigos.find((x) => x.id === c.inimigoId);
+  // o `Inimigo` morre um passo antes de a fase do chefe virar `morto`: sem barra a 0%
+  if (!i || i.modo === 'morto') return null;
+  const fracao = Math.max(0, Math.min(1, i.vida / tipoDe(i.tipo).vida));
+  return { nome: def.nome, vida: Math.round(fracao * 100) / 100 };
 }

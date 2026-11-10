@@ -1,129 +1,16 @@
 // Validador de fases: estrutura, referências e alcance (busca em largura com portas, cartões e gatilhos). Lógica pura.
+// A busca fica em `alcance.ts`; chefe e perigos em `validarChefe.ts`; props e sons em `validarCatalogo.ts`.
 import { TIPOS } from '../sim/ai/tipos';
-import type { Condicao, InimigoDef, LevelDef, Onde, PortaDef } from '../sim/fase';
-import { celula, criarGrid, passavel, SALTO, type Coord, type Grid } from '../sim/grid';
+import type { InimigoDef, LevelDef, Onde } from '../sim/fase';
+import { celula, criarGrid, type Coord, type Grid } from '../sim/grid';
 import { resolverOnde } from '../sim/onde';
+import { alcancar, andavel, aoAlcanceDeUso, condicaoAlcancavel, type Contexto } from './alcance';
+import { errosDeCatalogo } from './validarCatalogo';
+import { errosDeChefe } from './validarChefe';
 
 export interface OpcoesValidacao { minSegredos: number; minCartoes: number }
 
 const PADRAO: OpcoesValidacao = { minSegredos: 2, minCartoes: 1 };
-const VIZINHOS: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-const VAO_MINIMO = 1.8;
-
-/** Tudo o que a busca de alcance precisa, já resolvido (símbolos inválidos viram `null`). */
-interface Contexto {
-  f: LevelDef; g: Grid; inicio: Coord;
-  onde: (em: Onde) => Coord | null;
-  portas: { def: PortaDef; coord: Coord | null }[];
-  grupos: Set<string>;
-}
-
-/** Porta forçada na busca: sempre aberta ou sempre sólida, qualquer que seja o estado. */
-interface Forcada { id: string; aberta: boolean }
-
-/** Resultado da busca: `noAlcance` diz se a célula é alcançável. */
-interface Alcance { noAlcance: (c: Coord) => boolean }
-
-function andavel(g: Grid, c: Coord): boolean {
-  const cel = celula(g, c[0], c[1]);
-  return cel.tipo === 'piso' && cel.teto - cel.piso >= VAO_MINIMO;
-}
-
-/** Busca em largura em 4 direções a partir das origens, com `passavel(..., SALTO)`. */
-function buscar(g: Grid, origens: readonly Coord[], fechada: (col: number, row: number) => boolean): boolean[] {
-  const visto = new Array<boolean>(g.cols * g.rows).fill(false);
-  const fila: Coord[] = [];
-  for (const o of origens) {
-    const i = o[1] * g.cols + o[0];
-    if (!visto[i]) {
-      visto[i] = true;
-      fila.push(o);
-    }
-  }
-  for (let k = 0; k < fila.length; k++) {
-    const de = fila[k];
-    for (const [dc, dr] of VIZINHOS) {
-      const para: Coord = [de[0] + dc, de[1] + dr];
-      const i = para[1] * g.cols + para[0];
-      if (visto[i] || !passavel(g, de, para, SALTO, fechada)) continue;
-      visto[i] = true;
-      fila.push(para);
-    }
-  }
-  return visto;
-}
-
-/** Célula alcançável ou vizinha (4 direções) de uma alcançável: terminais e documentos podem ficar em paredes. */
-function aoAlcanceDeUso(a: Alcance, c: Coord): boolean {
-  return a.noAlcance(c) || VIZINHOS.some(([dc, dr]) => a.noAlcance([c[0] + dc, c[1] + dr]));
-}
-
-function condicaoAlcancavel(ctx: Contexto, a: Alcance, q: Condicao): boolean {
-  switch (q.tipo) {
-    case 'area':
-      for (let row = q.area[1]; row < q.area[1] + q.area[3]; row++) {
-        for (let col = q.area[0]; col < q.area[0] + q.area[2]; col++) if (a.noAlcance([col, row])) return true;
-      }
-      return false;
-    case 'terminal': {
-      const t = ctx.f.terminais.find((x) => x.id === q.id);
-      const c = t ? ctx.onde(t.em) : null;
-      return c !== null && aoAlcanceDeUso(a, c);
-    }
-    case 'pickup': {
-      const p = ctx.f.pickups[q.indice];
-      const c = p ? ctx.onde(p.em) : null;
-      return c !== null && a.noAlcance(c);
-    }
-    case 'grupo_morto':
-      return ctx.grupos.has(q.grupo);   // assume que o jogador mata o grupo
-    case 'chefe_vida':
-      return true;
-  }
-}
-
-/**
- * Alcance com estado: começa sem cartões; portas destrancadas abertas; trancadas com `exige` abrem
- * quando um cartão suficiente é alcançado; qualquer trancada abre quando um gatilho alcançável a abre
- * ou destranca; teleportes de gatilhos alcançáveis viram novas origens. Repete até não mudar mais nada.
- */
-function alcancar(ctx: Contexto, forcada?: Forcada): Alcance {
-  const { f, g } = ctx;
-  const abertas = new Set(f.portas.filter((p) => !p.trancada).map((p) => p.id));
-  const origens: Coord[] = [ctx.inicio];
-  const aberta = (id: string) => (forcada?.id === id ? forcada.aberta : abertas.has(id));
-  let visto: boolean[] = [];
-  const alcance: Alcance = {
-    noAlcance: (c) => c[0] >= 0 && c[1] >= 0 && c[0] < g.cols && c[1] < g.rows && visto[c[1] * g.cols + c[0]],
-  };
-  for (;;) {
-    const fechadas = ctx.portas.filter((p) => p.coord && !aberta(p.def.id)).map((p) => p.coord!);
-    visto = buscar(g, origens, (col, row) => fechadas.some((c) => c[0] === col && c[1] === row));
-    let mudou = false;
-    const abrir = (id: string) => {
-      if (abertas.has(id)) return;
-      abertas.add(id);
-      mudou = true;
-    };
-    let nivel = 0;
-    for (const p of f.pickups) {
-      const c = ctx.onde(p.em);
-      if (p.tipo === 'cartao' && p.nivel && c && alcance.noAlcance(c)) nivel = Math.max(nivel, p.nivel);
-    }
-    for (const p of f.portas) if (p.exige !== undefined && p.exige <= nivel) abrir(p.id);
-    for (const gat of f.gatilhos) {
-      if (!condicaoAlcancavel(ctx, alcance, gat.quando)) continue;
-      for (const acao of gat.faz) {
-        if (acao.acao === 'porta' && (acao.estado === 'abrir' || acao.estado === 'destrancar')) abrir(acao.id);
-        if (acao.acao === 'teleporte' && andavel(g, acao.para) && !alcance.noAlcance(acao.para)) {
-          origens.push(acao.para);
-          mudou = true;
-        }
-      }
-    }
-    if (!mudou) return alcance;
-  }
-}
 
 /** Ids repetidos de uma lista, cada um uma vez. */
 function repetidos(ids: readonly string[]): string[] {
@@ -176,7 +63,7 @@ export function validarFase(f: LevelDef, o: Partial<OpcoesValidacao> = {}): stri
   const spawns = inimigosDeSpawn(f);
 
   // estrutura, símbolos e referências
-  for (const lista of [f.portas, f.gatilhos, f.segredos, f.documentos, f.terminais]) {
+  for (const lista of [f.portas, f.gatilhos, f.segredos, f.documentos, f.terminais, f.chefe?.perigos ?? []]) {
     for (const id of repetidos(lista.map((x) => x.id))) erro(`Id duplicado: "${id}"`);
   }
   errosDeRampa(g).forEach(erro);
@@ -211,6 +98,7 @@ export function validarFase(f: LevelDef, o: Partial<OpcoesValidacao> = {}): stri
     // sem `trancada`, a simulação abre a porta livre e o `exige` não vale nada
     if (p.exige !== undefined && !p.trancada) erro(`Porta "${p.id}" exige cartão mas não está trancada`);
   }
+  errosDeCatalogo(f, g).forEach(erro);
 
   // alcance
   const ctx: Contexto = { f, g, inicio: g.marcas.get('P')![0], onde, portas: f.portas.map((def) => ({ def, coord: onde(def.em) })), grupos };
@@ -232,11 +120,16 @@ export function validarFase(f: LevelDef, o: Partial<OpcoesValidacao> = {}): stri
     const c = onde(p.em);
     if (c && !a.noAlcance(c)) erro(`Pickup #${i} inalcançável`);
   });
+  const patrulhaRuim = (ponto: Coord) => !andavel(g, ponto) || !a.noAlcance(ponto);
   f.inimigos.forEach((ini, i) => {
     const c = onde(ini.em);
     if (c && !a.noAlcance(c)) erro(`Inimigo #${i} inalcançável`);
-    if (ini.patrulha?.some((ponto) => !andavel(g, ponto) || !a.noAlcance(ponto))) erro(`Inimigo #${i} tem ponto de patrulha inalcançável`);
+    if (ini.patrulha?.some(patrulhaRuim)) erro(`Inimigo #${i} tem ponto de patrulha inalcançável`);
   });
+  for (const s of spawns) {
+    if (s.def.patrulha?.some(patrulhaRuim)) erro(`Inimigo criado pelo gatilho "${s.gatilho}" tem ponto de patrulha inalcançável`);
+  }
+  errosDeChefe(ctx, a).forEach(erro);
   for (const s of f.segredos) {
     if (!condicaoAlcancavel(ctx, a, { tipo: 'area', area: s.area })) erro(`Segredo "${s.id}" inalcançável`);
   }

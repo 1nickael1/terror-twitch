@@ -6,8 +6,8 @@ import { Coletor, faceVertical, quad } from './geometria';
 import type { Recursos } from './recursos';
 
 /** Janela: mureta até 1,0 m e vidro até 2,2 m acima do piso da célula da janela. */
-const MURETA = 1.0;
-const TOPO_VIDRO = 2.2;
+export const MURETA = 1.0;
+export const TOPO_VIDRO = 2.2;
 const EPS = 1e-3;
 const RAIO_BARRA = 0.025;
 const PASSO_BARRA = 0.2;
@@ -118,6 +118,49 @@ function celulaAberta(g: Grid, col: number, row: number, info: InfoCelula, co: C
   }
 }
 
+/**
+ * Face vertical de uma célula de janela numa borda: `de`/`ate` são as alturas nas duas pontas
+ * (A→B da borda; `paraFora` = a face olha para a vizinha, com as pontas invertidas na malha).
+ */
+export interface FaceJanela {
+  dc: number; dr: number; tipo: 'mureta' | 'verga' | 'ombreira'; paraFora: boolean;
+  de: [number, number]; ate: [number, number];
+}
+
+/**
+ * Faces verticais de uma célula de janela. Para cada vizinha andável: a mureta, do piso da vizinha
+ * (na borda) até o peitoril, e a verga, do topo do vidro até o teto da vizinha, ambas olhando para
+ * ela; isso fecha o desnível quando a janela fica mais alta ou mais baixa que a vizinha. Vizinha
+ * sólida: ombreira do vão, olhando para dentro. Vizinha janela: nada (o vão continua).
+ */
+export function facesJanela(g: Grid, col: number, row: number): FaceJanela[] {
+  const info = infoCelula(g, col, row);
+  const baixo = info.piso + MURETA;
+  const alto = info.piso + TOPO_VIDRO;
+  const faces: FaceJanela[] = [];
+  for (const d of DIRECOES) {
+    const nc = col + d.dc;
+    const nr = row + d.dr;
+    const viz = infoCelula(g, nc, nr);
+    if (viz.modo === 'janela') continue; // janela larga: o vão continua na vizinha
+    if (viz.modo !== 'piso') {
+      faces.push({ dc: d.dc, dr: d.dr, tipo: 'ombreira', paraFora: false, de: [baixo, baixo], ate: [alto, alto] });
+      continue;
+    }
+    // faces olhando para a vizinha andável (pontas B→A)
+    const { a, b } = borda(col, row, d.dc, d.dr);
+    const p0 = pisoNaBorda(g, viz, nc, nr, b);
+    const p1 = pisoNaBorda(g, viz, nc, nr, a);
+    if (p0 < baixo - EPS || p1 < baixo - EPS) {
+      faces.push({ dc: d.dc, dr: d.dr, tipo: 'mureta', paraFora: true, de: [p0, p1], ate: [Math.max(p0, baixo), Math.max(p1, baixo)] });
+    }
+    if (viz.teto > alto + EPS) {
+      faces.push({ dc: d.dc, dr: d.dr, tipo: 'verga', paraFora: true, de: [Math.max(p0, alto), Math.max(p1, alto)], ate: [viz.teto, viz.teto] });
+    }
+  }
+  return faces;
+}
+
 /** Janela: mureta, vidro com moldura e parede acima; o vão atravessa a célula. */
 function celulaJanela(g: Grid, col: number, row: number, info: InfoCelula, co: Coletor): void {
   const x0 = col * CELL;
@@ -130,22 +173,10 @@ function celulaJanela(g: Grid, col: number, row: number, info: InfoCelula, co: C
   co.add('parede', quad([[x0, baixo, z0], [x0, baixo, z1], [x1, baixo, z1], [x1, baixo, z0]], [[x0, -z0], [x0, -z1], [x1, -z1], [x1, -z0]]));
   co.add('parede', quad([[x0, alto, z0], [x1, alto, z0], [x1, alto, z1], [x0, alto, z1]], [[x0, z0], [x1, z0], [x1, z1], [x0, z1]]));
 
-  for (const d of DIRECOES) {
-    const nc = col + d.dc;
-    const nr = row + d.dr;
-    const viz = infoCelula(g, nc, nr);
-    const { a, b } = borda(col, row, d.dc, d.dr);
-    if (viz.modo === 'janela') continue; // janela larga: o vão continua na vizinha
-    if (viz.modo !== 'piso') {
-      // ombreira, olhando para dentro do vão
-      co.add('parede', faceVertical(a, b, baixo, baixo, alto, alto));
-      continue;
-    }
-    // faces olhando para a vizinha andável: inverter A e B vira a normal para fora
-    const p0 = pisoNaBorda(g, viz, nc, nr, b);
-    const p1 = pisoNaBorda(g, viz, nc, nr, a);
-    co.add('parede', faceVertical(b, a, p0, p1, Math.max(p0, baixo), Math.max(p1, baixo)));
-    co.add('parede', faceVertical(b, a, Math.max(p0, alto), Math.max(p1, alto), viz.teto, viz.teto));
+  for (const f of facesJanela(g, col, row)) {
+    const { a, b } = borda(col, row, f.dc, f.dr);
+    // inverter A e B vira a normal para fora da célula
+    co.add('parede', f.paraFora ? faceVertical(b, a, f.de[0], f.de[1], f.ate[0], f.ate[1]) : faceVertical(a, b, f.de[0], f.de[1], f.ate[0], f.ate[1]));
   }
 
   // vidro no meio da célula, perpendicular ao eixo entre as áreas andáveis, com moldura
