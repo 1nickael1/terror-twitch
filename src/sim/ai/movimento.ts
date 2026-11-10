@@ -10,8 +10,16 @@ import type { Inimigo, World } from '../world';
 import { tipoDe } from './tipos';
 
 /** Yaw de quem olha na direção (dx, dz), com frente = (-sin yaw, -cos yaw). */
-function yawPara(dx: number, dz: number): number {
+export function yawPara(dx: number, dz: number): number {
   return Math.atan2(-dx, -dz);
+}
+
+/** Ângulo em (-π, π]. */
+export function normalizar(a: number): number {
+  const v = a % (2 * Math.PI);
+  if (v > Math.PI) return v - 2 * Math.PI;
+  if (v <= -Math.PI) return v + 2 * Math.PI;
+  return v;
 }
 
 /** Vira o inimigo para o ponto (se não está em cima dele). */

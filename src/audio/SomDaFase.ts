@@ -1,20 +1,24 @@
 // Som da fase carregada: cama de ambiente, drone de tensão, alarme, o lamento posicional do chefe
-// inerte e os sons dos eventos do quadro. Quais laços tocam vem de `lacosDaFase` (fase concluída:
-// nenhum, com rampa de FADE_FIM; os sons avulsos, como o de conclusão, continuam).
+// inerte, os laços posicionais dos perigos de área ligados (zumbido da UV, jato de vapor) e os sons
+// dos eventos do quadro. Quais laços tocam vem de `lacosDaFase` e `lacosDePerigo` (fase concluída:
+// nenhum, com rampa de FADE_FIM; os sons avulsos, como o de conclusão, continuam). Cada laço
+// tocando ocupa uma vaga do limite de vozes (`Mixer.reservarLacos`).
 // Só lê o World; nasce e morre junto com a fase. Antes de o mixer ter contexto, não faz nada.
 import { solidoDe } from '../sim/doors';
 import type { SimEvent } from '../sim/eventos';
 import type { LevelDef } from '../sim/fase';
 import type { World } from '../sim/world';
-import { LamentoChefe } from './lamentoChefe';
+import { LacoPosicional, LamentoChefe } from './lamentoChefe';
 import type { Mixer } from './Mixer';
 import { atualizarOuvinte, criarCadeiaPosicional } from './posicional';
 import {
-  audivel, lacosDaFase, lamentoDoChefe, LimitadorSons, ocluido, somDoEvento, type NomeSom, type Ouvinte,
+  audivel, contarLacos, lacosDaFase, lacosDePerigo, lamentoDoChefe, LimitadorSons, ocluido, somDoEvento,
+  type LacoPerigo, type LacosDaFase, type NomeSom, type Ouvinte,
 } from './regras';
 import * as S from './sintese';
 import * as C from './sinteseCenario';
 import * as CH from './sinteseChefe';
+import * as F2 from './sinteseFase2';
 
 const SONS: Record<NomeSom, S.Sintese> = {
   tiroPistola: S.tiroPistola, tiroEscopeta: S.tiroEscopeta, tiroSmg: S.tiroSmg, disparoLancador: S.disparoLancador,
@@ -28,11 +32,27 @@ const SONS: Record<NomeSom, S.Sintese> = {
   chefeDesperta: CH.chefeDesperta, chefeArromba: CH.chefeArromba, chefeInvestida: CH.chefeInvestida,
   chefeGolpe: CH.chefeGolpe, chefeMorto: CH.chefeMorto, chefePasso: CH.chefePasso,
   comportaFecha: CH.comportaFecha, comportaAbre: CH.comportaAbre, comportaRecusa: CH.comportaRecusa,
-  sireneCurta: C.sireneCurta, estalo: C.estalo,
+  sireneCurta: C.sireneCurta, estalo: C.estalo, gaveta: F2.gaveta, elevador: F2.elevador,
+  gemido: F2.gemido, levantar: F2.levantar, frascoArremesso: F2.frascoArremesso, vidroQuebra: F2.vidroQuebra,
+  chefe049Desperta: F2.chefe049Desperta, chefe049Passo: F2.chefe049Passo, chefeToque: F2.chefeToque,
+  chefeReanima: F2.chefeReanima, chefeApressa: F2.chefeApressa, chefe049Morto: F2.chefe049Morto,
+  uvAviso: F2.uvAviso, uvLiga: F2.uvLiga, vaporAviso: F2.vaporAviso, vaporLiga: F2.vaporLiga,
+  perigoRecusa: F2.perigoRecusa,
 };
 
-/** s entre dois testes de oclusão do lamento (raio na grade) */
-const OCLUSAO_LAMENTO = 0.25;
+/** Laço de cada tipo de perigo de área. */
+const LACO_PERIGO: Record<LacoPerigo['tipo'], (b: S.Bancada, destino: AudioNode) => S.Laco> = {
+  ultravioleta: F2.uvZumbido,
+  vapor: F2.vaporJato,
+};
+
+function contemId(lista: readonly LacoPerigo[], id: string): boolean {
+  for (let k = 0; k < lista.length; k++) if (lista[k].id === id) return true;
+  return false;
+}
+
+/** s entre dois testes de oclusão dos laços posicionais (raio na grade) */
+const OCLUSAO_LACO = 0.25;
 
 /** ganho do drone com tensão 0 e 1 */
 const DRONE_MIN = 0.03;
@@ -43,6 +63,8 @@ const DRONE_SUAVE = 0.8;
 const DRONE_PASSO = 0.01;
 /** rampa (s) dos laços que param porque a fase terminou */
 const FADE_FIM = 0.4;
+/** rampa (s) do laço de perigo que desliga (a UV apaga, o vapor cessa) */
+const RAMPA_PERIGO = 0.25;
 
 export class SomDaFase {
   private readonly limitador = new LimitadorSons();
@@ -52,13 +74,21 @@ export class SomDaFase {
   private alarme: S.Laco | null = null;
   private lamento: LamentoChefe | null = null;
   private lamentoTestadoEm = -Infinity;
+  /** laços dos perigos de área tocando, por id do perigo */
+  private readonly perigos = new Map<string, { laco: LacoPosicional; testadoEm: number }>();
+  /** saída reaproveitada de `lacosDePerigo` e o estado dos laços para `contarLacos` (sem alocar por quadro) */
+  private readonly alvosPerigo: LacoPerigo[] = [];
+  private readonly lacosTocando: LacosDaFase = { ambiente: false, drone: false, alarme: false, lamento: false };
+  private readonly temPerigoArea: boolean;
   private tensaoAplicada = -1;
   private descartado = false;
 
   constructor(
     private readonly mixer: Mixer,
     private readonly fase: LevelDef,
-  ) {}
+  ) {
+    this.temPerigoArea = (fase.chefe?.perigos ?? []).some((p) => p.tipo !== 'comporta');
+  }
 
   sincronizar(world: World, eventos: readonly SimEvent[], ouvinte: Ouvinte): void {
     if (this.descartado) return;
@@ -77,6 +107,14 @@ export class SomDaFase {
       this.seguirTensao(ctx, world.tensao);
       this.seguirAlarme(b, efeitos, lacos.alarme, rampa);
       this.seguirLamento(b, efeitos, world, ouvinte, lacos.lamento, rampa);
+      this.seguirPerigos(b, efeitos, world, ouvinte, rampa);
+      // cada laço tocando tira uma vaga das vozes avulsas (o total não passa do limite)
+      const t = this.lacosTocando;
+      t.ambiente = this.ambiente !== null;
+      t.drone = this.drone !== null;
+      t.alarme = this.alarme !== null;
+      t.lamento = this.lamento !== null;
+      this.mixer.reservarLacos(contarLacos(t, this.perigos.size));
       // suspenso (pausa, aba oculta): nem ouvinte (automação acumulada) nem sons para tocar todos de uma vez depois
       if (ctx.state !== 'running') return;
       atualizarOuvinte(ctx, ouvinte);
@@ -101,11 +139,15 @@ export class SomDaFase {
     this.ambiente = this.drone = this.alarme = null;
     try {
       this.lamento?.parar();
+      for (const p of this.perigos.values()) p.laco.parar();
     } catch {
       /* contexto já fechado */
     }
     this.lamento = null;
+    this.perigos.clear();
     this.ctx = null;
+    // sem os laços desta fase, as avulsas voltam a ter todas as vagas
+    this.mixer.reservarLacos(0);
   }
 
   /** Contexto novo: os laços do antigo morreram com ele; são refeitos sob demanda (`seguir*`). */
@@ -115,15 +157,16 @@ export class SomDaFase {
     this.ambiente = this.drone = this.alarme = null;
     this.lamento?.parar();
     this.lamento = null;
+    for (const p of this.perigos.values()) p.laco.parar();
+    this.perigos.clear();
   }
 
   private seguirAmbiente(b: S.Bancada, efeitos: GainNode, ligado: boolean, rampa?: number): void {
     if (ligado && !this.ambiente) {
-      if (this.fase.ambiente.somDeFundo === 'zumbido') {
-        this.ambiente = S.zumbido(b, efeitos, S.criarRuidoRosa(b.ctx));
-      } else if (this.fase.ambiente.somDeFundo === 'ventilacao') {
-        this.ambiente = C.ventilacao(b, efeitos, S.criarRuidoRosa(b.ctx));
-      }
+      const fundo = this.fase.ambiente.somDeFundo;
+      if (fundo === 'zumbido') this.ambiente = S.zumbido(b, efeitos, S.criarRuidoRosa(b.ctx));
+      else if (fundo === 'ventilacao') this.ambiente = C.ventilacao(b, efeitos, S.criarRuidoRosa(b.ctx));
+      else if (fundo === 'hospital') this.ambiente = F2.hospital(b, efeitos, S.criarRuidoRosa(b.ctx));
     } else if (!ligado && this.ambiente) {
       this.ambiente.parar(b.ctx.currentTime, rampa);
       this.ambiente = null;
@@ -172,9 +215,34 @@ export class SomDaFase {
     }
     this.lamento.mover(alvo.pos.x, alvo.y, alvo.pos.z);
     const t = b.ctx.currentTime;
-    if (t - this.lamentoTestadoEm >= OCLUSAO_LAMENTO) {
+    if (t - this.lamentoTestadoEm >= OCLUSAO_LACO) {
       this.lamentoTestadoEm = t;
       this.lamento.abafar(ocluido(world.grid, ouvinte, alvo.pos, solidoDe(world)));
+    }
+  }
+
+  /** Laços dos perigos de área ligados (os mais próximos): nascem no `liga`, param no `desliga`. */
+  private seguirPerigos(b: S.Bancada, efeitos: GainNode, world: World, ouvinte: Ouvinte, rampa?: number): void {
+    // fase sem perigo de área nem laço tocando: nada a fazer (nem alocar)
+    if (!this.temPerigoArea && this.perigos.size === 0) return;
+    // quem já toca tem histerese (não é recriado na borda do alcance nem num empate)
+    const alvos = lacosDePerigo(world, ouvinte, this.perigos, this.alvosPerigo);
+    for (const [id, p] of this.perigos) {
+      if (contemId(alvos, id)) continue;
+      p.laco.parar(rampa ?? RAMPA_PERIGO);
+      this.perigos.delete(id);
+    }
+    const t = b.ctx.currentTime;
+    for (const a of alvos) {
+      let p = this.perigos.get(a.id);
+      if (!p) {
+        p = { laco: new LacoPosicional(b, efeitos, a.pos.x, a.y, a.pos.z, LACO_PERIGO[a.tipo]), testadoEm: -Infinity };
+        this.perigos.set(a.id, p);
+      }
+      if (t - p.testadoEm >= OCLUSAO_LACO) {
+        p.testadoEm = t;
+        p.laco.abafar(ocluido(world.grid, ouvinte, a.pos, solidoDe(world)));
+      }
     }
   }
 

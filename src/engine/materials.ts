@@ -37,6 +37,8 @@ export class MaterialBank {
   private readonly cache = new Map<string, MaterialDoBanco>();
   private readonly users = new Map<string, Set<Mesh>>();
   private readonly textures = new Set<Texture>();
+  /** brilho variável por slot (lâmpadas dos perigos), multiplicado ao emissivo do slot e ao do filtro */
+  private readonly brilhos = new Map<string, number>();
 
   define(slot: string, def: SlotDef): void {
     this.defs.set(slot, def);
@@ -54,6 +56,7 @@ export class MaterialBank {
     const d = this.defs.get(slot);
     if (!d) return;
     this.defs.delete(slot);
+    this.brilhos.delete(slot);
     for (const kind of ['lambert', 'standard'] as const) {
       const key = `${kind}:${slot}`;
       this.cache.get(key)?.dispose();
@@ -87,7 +90,7 @@ export class MaterialBank {
       color: d.color ?? 0xffffff,
       map: d.map ?? null,
       emissive: d.emissive ?? 0x000000,
-      emissiveIntensity: (d.emissiveIntensity ?? 1) * this.emissivo,
+      emissiveIntensity: this.intensidade(slot, d),
       transparent: translucido,
       opacity: d.opacity ?? 1,
       depthWrite: !translucido,
@@ -128,9 +131,27 @@ export class MaterialBank {
     if (mult === this.emissivo) return;
     this.emissivo = mult;
     for (const [key, m] of this.cache) {
-      const d = this.defs.get(key.slice(key.indexOf(':') + 1));
-      m.emissiveIntensity = (d?.emissiveIntensity ?? 1) * mult;
+      const slot = key.slice(key.indexOf(':') + 1);
+      m.emissiveIntensity = this.intensidade(slot, this.defs.get(slot));
     }
+  }
+
+  /**
+   * Brilho variável (0..) de um slot: multiplica o `emissiveIntensity` dele (lâmpadas dos perigos piscando).
+   * Vale para as duas variantes (lambert/standard) e segue o multiplicador do filtro (`setEmissivo`).
+   */
+  ajustarBrilho(slot: string, k: number): void {
+    if (!this.defs.has(slot) || this.brilhos.get(slot) === k) return;
+    this.brilhos.set(slot, k);
+    const d = this.defs.get(slot);
+    for (const kind of ['lambert', 'standard'] as const) {
+      const m = this.cache.get(`${kind}:${slot}`);
+      if (m) m.emissiveIntensity = this.intensidade(slot, d);
+    }
+  }
+
+  private intensidade(slot: string, d: SlotDef | undefined): number {
+    return (d?.emissiveIntensity ?? 1) * (this.brilhos.get(slot) ?? 1) * this.emissivo;
   }
 
   dispose(): void {
@@ -148,6 +169,8 @@ export function createMaterialBank(t: Textures): MaterialBank {
   const b = new MaterialBank();
   // estrutura da fase
   b.define('parede', { map: t.concreto, roughness: 0.95 });
+  // revestimento `azulejo` (ambiente.revestimento): esmalte um pouco mais liso que o concreto
+  b.define('parede-azulejo', { map: t.azulejo, roughness: 0.55, metalness: 0.05 });
   b.define('piso', { map: t.piso, roughness: 0.75, metalness: 0.1 });
   b.define('teto', { map: t.teto, roughness: 0.9 });
   b.define('degrau', { map: t.concreto, color: 0x9a948a, roughness: 0.9 });

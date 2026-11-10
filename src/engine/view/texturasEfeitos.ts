@@ -94,6 +94,30 @@ export function texturaSangue(): CanvasTexture {
   });
 }
 
+/** Respingo do frasco: poça amarelo-esverdeada irregular com gotas e cacos de vidro claros. */
+export function texturaRespingoQuimico(): CanvasTexture {
+  return canvas(128, 53, (g, s, r) => {
+    const c = s / 2;
+    mancha(g, c, c, s * 0.26, '120,130,34', 0.8);
+    for (let k = 0; k < 18; k++) {
+      const a = r() * Math.PI * 2;
+      const d = s * (0.08 + r() * 0.34);
+      mancha(g, c + Math.cos(a) * d, c + Math.sin(a) * d, s * (0.02 + r() * 0.05), '105,118,30', 0.75);
+    }
+    // cacos: lascas claras e finas
+    for (let k = 0; k < 16; k++) {
+      const a = r() * Math.PI * 2;
+      const d = s * (0.05 + r() * 0.38);
+      g.fillStyle = `rgba(210,230,225,${0.55 + r() * 0.35})`;
+      g.save();
+      g.translate(c + Math.cos(a) * d, c + Math.sin(a) * d);
+      g.rotate(r() * Math.PI);
+      g.fillRect(-1, -3 - r() * 3, 2, 6 + r() * 4);
+      g.restore();
+    }
+  });
+}
+
 /** Marca de queimado: fuligem radial irregular. */
 export function texturaQueimado(): CanvasTexture {
   return canvas(128, 23, (g, s, r) => {

@@ -7,6 +7,7 @@ import type { Progresso } from '../save/progresso';
 import type { Comando } from '../sim/tela';
 import { Creditos } from './TelaCreditos';
 import { formatarTempo } from './formato';
+import { fasesDaSelecao } from './selecao';
 import css from './menus.module.css';
 import { useNavegacaoMenu } from './navegacao';
 import { Opcoes } from './Opcoes';
@@ -38,23 +39,20 @@ function Raiz({ progresso, comando, ir }: { progresso: Progresso; comando: MenuP
 
 function Fases({ progresso, comando, voltar }: { progresso: Progresso; comando: MenuProps['comando']; voltar: () => void }) {
   const ref = useNavegacaoMenu<HTMLDivElement>(voltar);
-  const abertas = FASES.slice(0, progresso.desbloqueadas);
+  const abertas = fasesDaSelecao(FASES, progresso);
   return (
     <div ref={ref}>
       <p className={css.rotulo}>Setores liberados</p>
       <ul className={css.lista} role="menu" aria-label="Seleção de fase">
-        {abertas.map((f, i) => {
-          const melhor = progresso.melhorTempo[f.id];
-          return (
-            <li key={f.id} role="none">
-              <button type="button" role="menuitem" className={css.item} onClick={() => comando({ c: 'fase', indice: i })}
-                aria-label={`${f.nome}${melhor ? `, melhor tempo ${formatarTempo(melhor)}` : ''}`}>
-                <span>{i + 1}. {f.nome}</span>
-                <small>{melhor ? formatarTempo(melhor) : '--:--'}</small>
-              </button>
-            </li>
-          );
-        })}
+        {abertas.map(({ indice, id, nome, melhor }) => (
+          <li key={id} role="none">
+            <button type="button" role="menuitem" className={css.item} onClick={() => comando({ c: 'fase', indice })}
+              aria-label={`${nome}${melhor ? `, melhor tempo ${formatarTempo(melhor)}` : ''}`}>
+              <span>{indice + 1}. {nome}</span>
+              <small>{melhor ? formatarTempo(melhor) : '--:--'}</small>
+            </button>
+          </li>
+        ))}
         <li role="none" className={css.voltar}>
           <button type="button" role="menuitem" className={css.item} onClick={voltar}>Voltar</button>
         </li>

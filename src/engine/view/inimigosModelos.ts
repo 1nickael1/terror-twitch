@@ -1,18 +1,27 @@
 // Modelos dos inimigos: um esqueleto de grupos (pivôs nas juntas) com peças de primitivas. Os
-// moldes ficam em `moldesInimigos.ts` (comuns) e `moldeChefe.ts` (chefe da fase 1).
+// moldes ficam em `moldesInimigos.ts` (comuns, fases 1 e 2) e `moldeChefe.ts` (chefes 096 e 049).
 // Desempenho: as peças rígidas de cada osso viram UMA geometria (cor de cada peça no atributo
 // `color`, slot `ini-corpo` com `vertexColors`); as emissivas de um osso, outra. São no máximo 8
 // malhas por inimigo, com geometrias criadas uma vez por tipo.
 import { AdditiveBlending, Color, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, Vector3, type BufferGeometry } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { TIPOS } from '../../sim/ai/tipos';
-import { ENTIDADE096, SLOT_OLHO_CHEFE } from './moldeChefe';
-import { FUNCIONARIO, GENERICO, SEGURANCA, type Antebraco, type Molde, type Osso, type OssoBase, type Peca } from './moldesInimigos';
+import { ENTIDADE049, ENTIDADE096, SLOT_LENTE_049, SLOT_OLHO_CHEFE } from './moldeChefe';
+import {
+  CIRURGICO, ENFERMEIRO, FUNCIONARIO, GENERICO, REANIMADO, SEGURANCA,
+  type Antebraco, type Molde, type Osso, type OssoBase, type Peca,
+} from './moldesInimigos';
 import type { Recursos } from './recursos';
 
 export type { Osso, PoseBase } from './moldesInimigos';
 
-const MOLDES: Record<string, Molde> = { funcionario: FUNCIONARIO, seguranca: SEGURANCA, entidade096: ENTIDADE096 };
+export const MOLDES: Readonly<Record<string, Molde>> = {
+  funcionario: FUNCIONARIO, seguranca: SEGURANCA, entidade096: ENTIDADE096,
+  reanimado: REANIMADO, reanimado_cirurgico: CIRURGICO, enfermeiro: ENFERMEIRO, entidade049: ENTIDADE049,
+};
+
+/** cor padrão do brilho do preparo (boca da arma do segurança) */
+const COR_BRILHO = 0xff7a30;
 
 /** Sombra só de tronco e pernas (braços e cabeça quase não mudam a sombra). */
 const OSSOS_COM_SOMBRA: ReadonlySet<Osso> = new Set<Osso>(['tronco', 'pernaE', 'pernaD']);
@@ -42,6 +51,7 @@ export interface Rig {
 interface MalhaTipo {
   osso: Osso; geo: BufferGeometry; slot: string; emissivo: boolean; apaga: boolean;
   brilho: Vector3 | null;   // posição da boca (a geometria do brilho fica centrada)
+  corBrilho: number;
 }
 
 function moldar(p: Peca): BufferGeometry {
@@ -77,14 +87,24 @@ export function pintar(g: BufferGeometry, hex: number): BufferGeometry {
 
 export class ModelosInimigos {
   private readonly tipos = new Map<string, MalhaTipo[]>();
-  private readonly matBrilho: MeshBasicMaterial;
+  /** material aditivo de cada cor de brilho (criado na primeira vez) */
+  private readonly matsBrilho = new Map<number, MeshBasicMaterial>();
 
   constructor(private readonly rec: Recursos) {
-    this.matBrilho = rec.mat(new MeshBasicMaterial({
-      color: 0xff7a30, transparent: true, opacity: 0.9, blending: AdditiveBlending, depthWrite: false,
-    }));
-    // olhos do chefe: brilho frio e fraco (vive com a fase)
+    // olhos do chefe 096: brilho frio e fraco; lentes da máscara do 049: brasa fraca (vivem com a fase)
     rec.slot(SLOT_OLHO_CHEFE, { color: 0xd4e4f4, emissive: 0xbcd6ff, emissiveIntensity: 0.45 });
+    rec.slot(SLOT_LENTE_049, { color: 0x3a1a14, emissive: 0xd0522a, emissiveIntensity: 0.55 });
+  }
+
+  private matBrilho(cor: number): MeshBasicMaterial {
+    let m = this.matsBrilho.get(cor);
+    if (!m) {
+      m = this.rec.mat(new MeshBasicMaterial({
+        color: cor, transparent: true, opacity: 0.9, blending: AdditiveBlending, depthWrite: false,
+      }));
+      this.matsBrilho.set(cor, m);
+    }
+    return m;
   }
 
   montar(tipo: string): Rig {
@@ -129,7 +149,7 @@ export class ModelosInimigos {
     const malhas: MalhaRig[] = malhasTipo.map((m) => {
       let malha: Mesh;
       if (m.brilho) {
-        malha = new Mesh(m.geo, this.matBrilho);
+        malha = new Mesh(m.geo, this.matBrilho(m.corBrilho));
         malha.position.copy(m.brilho);
       } else {
         malha = this.rec.usar(new Mesh(m.geo), m.slot);
@@ -152,13 +172,13 @@ export class ModelosInimigos {
       const comuns = pecas.filter((p) => !p.emissivo);
       if (comuns.length > 0) {
         const geo = unir(comuns.map((p) => pintar(moldar(p), p.cor ?? 0xffffff)));
-        saida.push({ osso, geo: this.rec.geo(geo), slot: 'ini-corpo', emissivo: false, apaga: false, brilho: null });
+        saida.push({ osso, geo: this.rec.geo(geo), slot: 'ini-corpo', emissivo: false, apaga: false, brilho: null, corBrilho: 0 });
       }
       for (const p of pecas) {
         if (!p.brilho) continue;
         saida.push({
           osso, geo: this.rec.geo(moldar(p)), slot: '', emissivo: true, apaga: true,
-          brilho: new Vector3(...(p.pos ?? [0, 0, 0])),
+          brilho: new Vector3(...(p.pos ?? [0, 0, 0])), corBrilho: p.corBrilho ?? COR_BRILHO,
         });
       }
       // emissivas comuns: uma malha por (slot, apaga) no osso
@@ -171,7 +191,7 @@ export class ModelosInimigos {
       for (const [k, lista] of grupos) {
         const [slot, apaga] = k.split('|');
         saida.push({
-          osso, geo: this.rec.geo(unir(lista.map(moldar))), slot, emissivo: true, apaga: apaga === 'true', brilho: null,
+          osso, geo: this.rec.geo(unir(lista.map(moldar))), slot, emissivo: true, apaga: apaga === 'true', brilho: null, corBrilho: 0,
         });
       }
     }

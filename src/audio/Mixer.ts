@@ -1,7 +1,7 @@
 // Mixer: o AudioContext, os barramentos (geral → efeitos e música) e as vozes avulsas.
 // O contexto só nasce em `iniciar()`, chamado num gesto do usuário. Sem WebAudio (ou se a criação
 // lançar), tudo vira operação nula, sem erro nem aviso.
-import { RegistroVozes } from './regras';
+import { RegistroVozes, vagasAvulsas } from './regras';
 import { criarRuidoBranco, type Bancada, type Sintese } from './sintese';
 
 /** rampa dos volumes (constante de tempo, s) */
@@ -146,7 +146,7 @@ export class Mixer {
 
   /**
    * Toca uma voz avulsa: `montar` liga o som na entrada da voz; `cadeia` (ex.: posicional) fica
-   * entre a voz e o barramento de efeitos. Acima de 24 vozes, a mais antiga é cortada.
+   * entre a voz e o barramento de efeitos. Acima das vagas (24 menos os laços tocando), a mais antiga é cortada.
    */
   tocar(montar: Sintese, cadeia: AudioNode[] = []): void {
     const ctx = this._ctx;
@@ -200,6 +200,19 @@ export class Mixer {
     } finally {
       b.coletor = null;
     }
+  }
+
+  /**
+   * Laços tocando agora (ambiente, drone, alarme, lamento, perigos): cada um ocupa uma vaga do limite
+   * de vozes (`vagasAvulsas`). Se as avulsas passarem das vagas novas, as mais antigas são cortadas.
+   */
+  reservarLacos(lacos: number): void {
+    const vagas = vagasAvulsas(lacos);
+    if (vagas === this.vozes.vagas) return;
+    const cortadas = this.vozes.definirLimite(vagas);
+    const ctx = this._ctx;
+    if (!ctx) return;
+    for (const v of cortadas) this.cortar(v, ctx.currentTime);
   }
 
   /** Corta todas as vozes avulsas com a rampa curta (ao descarregar a fase). */

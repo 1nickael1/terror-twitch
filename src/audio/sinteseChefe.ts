@@ -6,7 +6,7 @@ import {
 } from './sintese';
 
 /** Voz: duas serras desafinadas com vibrato por formantes paralelos. `curva`: [t relativo, Hz]. */
-function voz(
+export function voz(
   b: Bancada, destino: AudioNode, t: number,
   o: { curva: readonly (readonly [number, number])[]; formantes: readonly (readonly [number, number])[]; vibrato: number; dur: number },
 ): Fontes {
@@ -34,7 +34,7 @@ function voz(
 }
 
 /** Ganho com rampa de entrada, patamar e saída (pontos [t relativo, ganho]). */
-function curvaGanho(ctx: AudioContext, destino: AudioNode, t: number, pontos: readonly (readonly [number, number])[]): GainNode {
+export function curvaGanho(ctx: AudioContext, destino: AudioNode, t: number, pontos: readonly (readonly [number, number])[]): GainNode {
   const g = ctx.createGain();
   g.gain.setValueAtTime(MIN, t);
   for (const [k, v] of pontos) g.gain.exponentialRampToValueAtTime(Math.max(MIN, v), t + k);
@@ -59,7 +59,7 @@ export const chefeDesperta: Sintese = (b, d, t) => {
 };
 
 /** Uma pancada pesada em metal: baque grave e parciais inarmônicas que ressoam. */
-function pancada(b: Bancada, d: AudioNode, t: number, ganho: number): Fontes {
+export function pancada(b: Bancada, d: AudioNode, t: number, ganho: number): Fontes {
   const { ctx } = b;
   const f = baque(b, d, t, ganho);
   const et = envelope(ctx, d, t, 0.002, ganho * 0.9, 0.25);

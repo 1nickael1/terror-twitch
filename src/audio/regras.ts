@@ -1,11 +1,15 @@
 // Regras puras do áudio: que som cada evento da simulação pede, onde ele soa, quanto se
 // limita a repetição e qual voz cortar. Sem `three`, DOM nem WebAudio (testável no node).
-import type { ArmaId } from '../sim/fase';
+import { TIPOS } from '../sim/ai/tipos';
+import type { ArmaId, PerigoArea } from '../sim/fase';
 import type { SimEvent } from '../sim/eventos';
 import { alturaPiso, CELL, celula, centro, visivel, type Coord, type Grid, type Solido, type Vec2 } from '../sim/grid';
 import type { World } from '../sim/world';
 
-/** Sons avulsos (uma voz cada). Os laços (ambiente, drone, alarme) ficam fora desta lista. */
+/**
+ * Sons avulsos (uma voz cada). Os laços (ambiente, drone, alarme, lamento, perigos de área) ficam
+ * fora desta lista, mas contam no limite de vozes (`vagasAvulsas`).
+ */
 export const NOMES_SOM = [
   'tiroPistola', 'tiroEscopeta', 'tiroSmg', 'disparoLancador', 'explosao', 'impactoParede', 'impactoCarne',
   'passo', 'pulo', 'pouso', 'portaMotor', 'portaBaque', 'portaNegada', 'pickup', 'armaTrocada', 'semMunicao',
@@ -15,7 +19,11 @@ export const NOMES_SOM = [
   'chefeDesperta', 'chefeArromba', 'chefeInvestida', 'chefeGolpe', 'chefeMorto', 'chefePasso',
   'comportaFecha', 'comportaAbre', 'comportaRecusa',
   // ação `som` dos gatilhos (ids do catálogo)
-  'sireneCurta', 'estalo',
+  'sireneCurta', 'estalo', 'gaveta', 'elevador',
+  // fase 2: reanimados, frasco, chefe 049 e perigos de área
+  'gemido', 'levantar', 'frascoArremesso', 'vidroQuebra',
+  'chefe049Desperta', 'chefe049Passo', 'chefeToque', 'chefeReanima', 'chefeApressa', 'chefe049Morto',
+  'uvAviso', 'uvLiga', 'vaporAviso', 'vaporLiga', 'perigoRecusa',
 ] as const;
 export type NomeSom = (typeof NOMES_SOM)[number];
 
@@ -31,7 +39,7 @@ export const TIRO_POR_ARMA: Record<ArmaId, NomeSom> = {
 
 /** Som de cada id da ação `som` dos gatilhos (`SONS_DE_EVENTO` do catálogo). */
 export const SOM_DE_GATILHO: Readonly<Record<string, NomeSom>> = Object.freeze({
-  bip: 'bip', sirene_curta: 'sireneCurta', estalo: 'estalo',
+  bip: 'bip', sirene_curta: 'sireneCurta', estalo: 'estalo', gaveta: 'gaveta', elevador: 'elevador',
 });
 
 /** altura da "boca" do inimigo acima do piso dele */
@@ -46,10 +54,31 @@ const ALTURA_CHEFE = 2.2;
 const ALTURA_PASSO_CHEFE = 0.1;
 /** altura do mecanismo da comporta acima do piso */
 const ALTURA_COMPORTA = 1.5;
+/** altura do corpo no chão (quem levanta) acima do piso */
+const ALTURA_CORPO = 0.4;
+/** altura dos perigos de área (lâmpadas e canos no alto) acima do piso */
+const ALTURA_PERIGO_AREA = 2.4;
 
-function inimigo(w: World, id: number, som: NomeSom): PedidoSom | null {
+function inimigo(w: World, id: number, som: NomeSom, altura = ALTURA_INIMIGO): PedidoSom | null {
   const i = w.inimigos.find((x) => x.id === id);
-  return i ? { som, pos: { x: i.pos.x, z: i.pos.z }, y: i.y + ALTURA_INIMIGO } : null;
+  return i ? { som, pos: { x: i.pos.x, z: i.pos.z }, y: i.y + altura } : null;
+}
+
+/** O chefe é o da fase 2 (049)? Os eventos `chefe_*` comuns aos dois tocam a voz de cada um. */
+function chefe049(w: World): boolean {
+  return w.chefe?.tipo === 'entidade049';
+}
+
+/** Tipo reanimável (os reanimados): gemem em vez de grunhir. */
+function reanimavel(w: World, id: number): boolean {
+  const i = w.inimigos.find((x) => x.id === id);
+  return i !== undefined && Object.prototype.hasOwnProperty.call(TIPOS, i.tipo) && TIPOS[i.tipo].reanimavel;
+}
+
+/** Centro da área de um perigo, na altura `altura` acima do piso da primeira célula. */
+function centroDaArea(w: World, area: readonly [number, number, number, number], altura: number): { pos: Vec2; y: number } {
+  const [c0, r0, larg, alt] = area;
+  return { pos: { x: (c0 + larg / 2) * CELL, z: (r0 + alt / 2) * CELL }, y: celula(w.grid, c0, r0).piso + altura };
 }
 
 /** Cabeça do chefe (null sem chefe). */
@@ -75,22 +104,34 @@ function deInimigo(w: World, id: number, som: NomeSom): PedidoSom | null {
   return som === 'grunhidoAtaque' ? doChefe(w, 'chefeGolpe') : null;
 }
 
-/** Comporta: fecha e abre no centro da área; a recusa (recarregando) é retorno ao jogador. */
-function daComporta(w: World, id: string, estado: 'fecha' | 'abre' | 'recarregando'): PedidoSom | null {
+/** Som de cada estado de um perigo de área (UV, vapor); `desliga` só para o laço (sem avulso). */
+const SOM_PERIGO_AREA: Readonly<Record<PerigoArea['tipo'], Partial<Record<'aviso' | 'liga', NomeSom>>>> = {
+  ultravioleta: { aviso: 'uvAviso', liga: 'uvLiga' },
+  vapor: { aviso: 'vaporAviso', liga: 'vaporLiga' },
+};
+
+/**
+ * Perigo: comporta fecha e abre no centro da área; perigo de área avisa e liga no alto do centro da
+ * área. A recusa (recarregando) é retorno ao jogador: o bip da comporta só na comporta; os de área
+ * têm a própria recusa.
+ */
+function doPerigo(w: World, id: string, estado: 'fecha' | 'abre' | 'recarregando' | 'aviso' | 'liga' | 'desliga'): PedidoSom | null {
   const d = w.fase.chefe?.perigos.find((p) => p.id === id);
   if (!d) return null;
+  if (d.tipo !== 'comporta') {
+    if (estado === 'recarregando') return { som: 'perigoRecusa', pos: null };
+    const som = estado === 'aviso' || estado === 'liga' ? SOM_PERIGO_AREA[d.tipo][estado] : undefined;
+    return som ? { som, ...centroDaArea(w, d.area, ALTURA_PERIGO_AREA) } : null;
+  }
   if (estado === 'recarregando') return { som: 'comportaRecusa', pos: null };
-  const [c0, r0, larg, alt] = d.area;
-  const pos = { x: (c0 + larg / 2) * CELL, z: (r0 + alt / 2) * CELL };
-  return {
-    som: estado === 'fecha' ? 'comportaFecha' : 'comportaAbre', pos,
-    y: celula(w.grid, c0, r0).piso + ALTURA_COMPORTA,
-  };
+  if (estado !== 'fecha' && estado !== 'abre') return null;
+  return { som: estado === 'fecha' ? 'comportaFecha' : 'comportaAbre', ...centroDaArea(w, d.area, ALTURA_COMPORTA) };
 }
 
-/** Onde o lamento do chefe inerte toca (laço posicional), ou null se ele não está inerte. */
+/** Onde o lamento do chefe 096 inerte toca (laço posicional), ou null se ele não está inerte. */
 export function lamentoDoChefe(w: World): { pos: Vec2; y: number } | null {
-  if (w.chefe?.fase !== 'inerte') return null;
+  // o 049 inerte fica em silêncio: o lamento é do 096
+  if (w.chefe?.tipo !== 'entidade096' || w.chefe.fase !== 'inerte') return null;
   const c = cabecaDoChefe(w);
   // curvado: a voz sai mais baixa que a cabeça de pé
   return c ? { pos: c.pos, y: c.y - 0.5 } : null;
@@ -105,7 +146,62 @@ export interface LacosDaFase { ambiente: boolean; drone: boolean; alarme: boolea
  */
 export function lacosDaFase(w: World): LacosDaFase {
   if (w.estado === 'concluida') return { ambiente: false, drone: false, alarme: false, lamento: false };
-  return { ambiente: true, drone: true, alarme: w.alarme, lamento: lamentoDoChefe(w) !== null };
+  return { ambiente: true, drone: true, alarme: w.alarme && w.sirene > 0, lamento: lamentoDoChefe(w) !== null };
+}
+
+/**
+ * Laço de um perigo de área ligado: zumbido da UV ou jato de vapor, no alto do centro da área.
+ * `d`: distância ao ouvinte; `nota`: a distância com a vantagem de quem já toca (a ordem da escolha).
+ */
+export interface LacoPerigo { id: string; tipo: PerigoArea['tipo']; pos: Vec2; y: number; d: number; nota: number }
+
+/** no máximo estes laços de perigo ao mesmo tempo (os mais próximos do ouvinte) */
+export const MAX_LACOS_PERIGO = 2;
+/** histerese: um laço já tocando só sai além de `maxDistance × HISTERESE_LACO` (entra a `maxDistance`) */
+export const HISTERESE_LACO = 1.15;
+/** m de vantagem de um laço já tocando na disputa pelas vagas (não troca por um quase igual) */
+export const DESEMPATE_LACO = 2;
+
+const NENHUM: { has(id: string): boolean } = { has: () => false };
+
+/**
+ * Laços dos perigos de área que devem tocar: os ligados (`ativo > 0`), audíveis, os `MAX_LACOS_PERIGO`
+ * de menor `nota`. Com histerese para não recriar o laço na borda: quem já toca (`tocando`) fica até
+ * `maxDistance × HISTERESE_LACO` e ganha DESEMPATE_LACO m de vantagem na ordem. Fase concluída: nenhum.
+ * Preenche e devolve `saida` (reaproveitável); sem perigo ligado, nada é alocado.
+ */
+export function lacosDePerigo(
+  w: World, ouvinte: Ouvinte, tocando: { has(id: string): boolean } = NENHUM, saida: LacoPerigo[] = [],
+): LacoPerigo[] {
+  saida.length = 0;
+  if (w.estado === 'concluida') return saida;
+  const defs = w.fase.chefe?.perigos;
+  if (!defs) return saida;
+  for (let i = 0; i < w.perigos.length; i++) {
+    const def = defs[i];
+    if (!def || def.tipo === 'comporta' || w.perigos[i].ativo <= 0) continue;
+    const { pos, y } = centroDaArea(w, def.area, ALTURA_PERIGO_AREA);
+    const d = Math.hypot(pos.x - ouvinte.pos.x, y - ouvinte.y, pos.z - ouvinte.pos.z);
+    const ja = tocando.has(def.id);
+    if (d > POSICIONAL.maxDistance * (ja ? HISTERESE_LACO : 1)) continue;
+    saida.push({ id: def.id, tipo: def.tipo, pos, y, d, nota: ja ? d - DESEMPATE_LACO : d });
+  }
+  if (saida.length > 1) saida.sort((a, b) => a.nota - b.nota);
+  if (saida.length > MAX_LACOS_PERIGO) saida.length = MAX_LACOS_PERIGO;
+  return saida;
+}
+
+/** Quantos laços tocam: os da fase (ambiente, drone, alarme, lamento) mais os dos perigos. */
+export function contarLacos(l: LacosDaFase, perigos: number): number {
+  return Number(l.ambiente) + Number(l.drone) + Number(l.alarme) + Number(l.lamento) + perigos;
+}
+
+/**
+ * Vagas das vozes avulsas: o limite de vozes vale para o total (laços + avulsas), então cada laço
+ * tocando tira uma vaga dos avulsos (nunca menos que `LIMITE.minAvulsas`).
+ */
+export function vagasAvulsas(lacos: number): number {
+  return Math.max(LIMITE.minAvulsas, LIMITE.vozes - Math.max(0, lacos));
 }
 
 /** O som que o evento pede, ou `null` para eventos sem som. Só lê o mundo. */
@@ -143,7 +239,11 @@ export function somDoEvento(e: SimEvent, w: World): PedidoSom | null {
     case 'dano_jogador':
       return { som: 'dorJogador', pos: null };
     case 'inimigo_alerta':
-      return deInimigo(w, e.id, 'grunhidoAlerta');
+      // os reanimados gemem em vez de grunhir
+      return deInimigo(w, e.id, reanimavel(w, e.id) ? 'gemido' : 'grunhidoAlerta');
+    case 'inimigo_levanta':
+      // o corpo levantando do chão (reanimado pelo 049 ou o emboscador deitado)
+      return w.chefe?.inimigoId === e.id ? null : inimigo(w, e.id, 'levantar', ALTURA_CORPO);
     case 'inimigo_ataque':
       return deInimigo(w, e.id, 'grunhidoAtaque');
     case 'inimigo_dor':
@@ -153,8 +253,13 @@ export function somDoEvento(e: SimEvent, w: World): PedidoSom | null {
     case 'projetil': {
       // o projétil do jogador (lançador) já soa no `tiro`
       const p = w.projeteis.find((x) => x.id === e.id);
-      return p && p.de === 'inimigo' ? { som: 'projetil', pos: { x: p.pos.x, z: p.pos.z }, y: p.y } : null;
+      if (!p || p.de !== 'inimigo') return null;
+      // projétil em arco (frasco do enfermeiro): o arremesso tem som próprio
+      const arco = Object.prototype.hasOwnProperty.call(TIPOS, p.tipo) && TIPOS[p.tipo].projetil?.arco !== undefined;
+      return { som: arco ? 'frascoArremesso' : 'projetil', pos: { x: p.pos.x, z: p.pos.z }, y: p.y };
     }
+    case 'frasco_quebra':
+      return { som: 'vidroQuebra', pos: { x: e.pos.x, z: e.pos.z }, y: e.y };
     case 'terminal':
     case 'documento':
       return { som: 'bip', pos: null };
@@ -167,13 +272,22 @@ export function somDoEvento(e: SimEvent, w: World): PedidoSom | null {
     case 'som':
       return Object.prototype.hasOwnProperty.call(SOM_DE_GATILHO, e.id) ? { som: SOM_DE_GATILHO[e.id], pos: null } : null;
     case 'chefe_desperta':
-      return doChefe(w, 'chefeDesperta');
+      return doChefe(w, chefe049(w) ? 'chefe049Desperta' : 'chefeDesperta');
     case 'chefe_investida':
       return doChefe(w, 'chefeInvestida');
     case 'chefe_morto':
-      return { som: 'chefeMorto', pos: null };
+      return { som: chefe049(w) ? 'chefe049Morto' : 'chefeMorto', pos: null };
     case 'chefe_passo':
-      return { som: 'chefePasso', pos: { x: e.pos.x, z: e.pos.z }, y: alturaPiso(w.grid, e.pos) + ALTURA_PASSO_CHEFE };
+      return {
+        som: chefe049(w) ? 'chefe049Passo' : 'chefePasso', pos: { x: e.pos.x, z: e.pos.z },
+        y: alturaPiso(w.grid, e.pos) + ALTURA_PASSO_CHEFE,
+      };
+    case 'chefe_toque':
+      return doChefe(w, 'chefeToque');
+    case 'chefe_reanima':
+      return doChefe(w, 'chefeReanima');
+    case 'chefe_apressa':
+      return doChefe(w, 'chefeApressa');
     case 'chefe_arromba': {
       const p = w.portas.find((x) => x.id === e.porta);
       if (!p) return null;
@@ -181,7 +295,7 @@ export function somDoEvento(e: SimEvent, w: World): PedidoSom | null {
       return { som: 'chefeArromba', pos: centro(p.coord), y: celula(w.grid, col, row).piso + ALTURA_PORTA, celulaPorta: p.coord };
     }
     case 'perigo':
-      return daComporta(w, e.id, e.estado);
+      return doPerigo(w, e.id, e.estado);
     case 'jogador_morto':
       return { som: 'morteJogador', pos: null };
     case 'fase_concluida':
@@ -195,7 +309,11 @@ export function somDoEvento(e: SimEvent, w: World): PedidoSom | null {
   }
 }
 
-export const LIMITE = { intervaloMs: 30, porQuadro: 3, vozes: 24 } as const;
+/**
+ * `vozes`: limite do total de vozes (laços + avulsas); `minAvulsas`: vagas avulsas que sobram mesmo
+ * com muitos laços tocando.
+ */
+export const LIMITE = { intervaloMs: 30, porQuadro: 3, vozes: 24, minAvulsas: 12 } as const;
 
 /**
  * Limita a repetição por tipo: até `porQuadro` do mesmo tipo no mesmo quadro (ex.: os balins da
@@ -233,13 +351,30 @@ export class LimitadorSons {
 export class RegistroVozes<T> {
   private readonly vozes: T[] = [];
 
-  constructor(private readonly limite: number = LIMITE.vozes) {}
+  constructor(private limite: number = LIMITE.vozes) {}
 
   get tamanho(): number {
     return this.vozes.length;
   }
 
-  /** Registra a voz nova; devolve a voz que precisa ser cortada para abrir vaga, ou `null`. */
+  get vagas(): number {
+    return this.limite;
+  }
+
+  /**
+   * Muda o limite (ex.: `vagasAvulsas` com os laços tocando). Devolve as vozes mais antigas que
+   * passaram do limite novo (quem chama faz o corte); elas já saem do registro.
+   */
+  definirLimite(n: number): T[] {
+    this.limite = Math.max(1, Math.floor(n));
+    const excesso = this.vozes.length - this.limite;
+    return excesso > 0 ? this.vozes.splice(0, excesso) : [];
+  }
+
+  /**
+   * Registra a voz nova; devolve a voz que precisa ser cortada para abrir vaga, ou `null`. (Depois de
+   * `definirLimite` o registro já está no limite: nunca há mais de uma a cortar aqui.)
+   */
   adicionar(v: T): T | null {
     const cortada = this.vozes.length >= this.limite ? (this.vozes.shift() ?? null) : null;
     this.vozes.push(v);

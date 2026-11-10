@@ -77,14 +77,30 @@ export function validarFase(f: LevelDef, o: Partial<OpcoesValidacao> = {}): stri
     if (!tipoValido(ini.tipo)) erro(`Inimigo #${i} tem tipo desconhecido "${ini.tipo}"`);
   });
   for (const s of spawns) if (!tipoValido(s.def.tipo)) erro(`Gatilho "${s.gatilho}" cria inimigo de tipo desconhecido "${s.def.tipo}"`);
+  // corpo (`corpo: true`) só em tipo que o chefe 049 levanta; tipo desconhecido já tem erro próprio
+  const corpoInvalido = (d: InimigoDef) => d.corpo === true && tipoValido(d.tipo) && !TIPOS[d.tipo].reanimavel;
+  f.inimigos.forEach((ini, i) => {
+    if (corpoInvalido(ini)) erro(`Inimigo #${i} é corpo, mas o tipo "${ini.tipo}" não é reanimável`);
+  });
+  for (const s of spawns) if (corpoInvalido(s.def)) erro(`Gatilho "${s.gatilho}" cria corpo de tipo não reanimável "${s.def.tipo}"`);
 
-  const grupos = new Set([...f.inimigos, ...spawns.map((s) => s.def)].flatMap((d) => (d.grupo ? [d.grupo] : [])));
+  const todos = [...f.inimigos, ...spawns.map((s) => s.def)];
+  const grupos = new Set(todos.flatMap((d) => (d.grupo ? [d.grupo] : [])));
+  // grupo feito só de corpos já nasce "morto": o `grupo_morto` dele dispara assim que o grupo existe
+  const soCorpos = (grupo: string) => todos.filter((d) => d.grupo === grupo).every((d) => d.corpo === true);
   // o grupo de luz `alarme` é sempre válido: a engine o acende com `world.alarme`
   const gruposDeLuz = new Set(['alarme', ...f.luzes.flatMap((l) => (l.grupo ? [l.grupo] : []))]);
   for (const gat of f.gatilhos) {
     const q = gat.quando;
     if (q.tipo === 'terminal' && !f.terminais.some((t) => t.id === q.id)) erro(`Gatilho "${gat.id}" referencia terminal "${q.id}" inexistente`);
     if (q.tipo === 'grupo_morto' && !grupos.has(q.grupo)) erro(`Gatilho "${gat.id}" referencia grupo "${q.grupo}" inexistente`);
+    if (q.tipo === 'grupo_morto' && grupos.has(q.grupo) && soCorpos(q.grupo)) {
+      erro(`Gatilho "${gat.id}" espera a morte do grupo "${q.grupo}", que só tem corpos (dispara assim que o grupo existe)`);
+    }
+    if (q.tipo === 'tempo' && q.desde === gat.id) erro(`Gatilho "${gat.id}" conta o tempo desde ele mesmo`);
+    else if (q.tipo === 'tempo' && !f.gatilhos.some((x) => x.id === q.desde)) {
+      erro(`Gatilho "${gat.id}" conta o tempo desde o gatilho "${q.desde}", que não existe`);
+    }
     if (q.tipo === 'pickup' && !f.pickups[q.indice]) erro(`Gatilho "${gat.id}" referencia pickup #${q.indice} inexistente`);
     for (const a of gat.faz) {
       if (a.acao === 'porta' && !f.portas.some((p) => p.id === a.id)) erro(`Gatilho "${gat.id}" referencia porta "${a.id}" inexistente`);

@@ -35,6 +35,11 @@ export class Recursos {
     return nome;
   }
 
+  /** Brilho variável de um slot do banco (lâmpadas: segue o emissivo do filtro). */
+  brilho(slot: string, k: number): void {
+    this.bank.ajustarBrilho(slot, k);
+  }
+
   /** Malha com material do banco (troca lambert/standard junto com o resto). */
   usar<T extends Mesh>(mesh: T, slot: string): T {
     this.geometrias.add(mesh.geometry);

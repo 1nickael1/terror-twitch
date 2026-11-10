@@ -20,12 +20,27 @@ interface Emissao {
   n: number; cor: readonly [number, number, number]; alfa: number; tamanho: number; cresce: number;
   vel: [min: number, max: number]; subida: number; vida: [min: number, max: number];
   gravidade: number; arrasto: number; espalha: number; plano?: boolean;
+  /** jato: velocidade ao longo desta direção (unitária), com `abertura` de desvio lateral (fração) */
+  jato?: { dir: readonly [number, number, number]; abertura: number };
 }
 
 const FAISCA: Emissao = { n: 7, cor: [1, 0.72, 0.3], alfa: 1, tamanho: 0.05, cresce: 0, vel: [1.5, 4], subida: 1.5, vida: [0.18, 0.4], gravidade: 9, arrasto: 1, espalha: 0.02 };
 const RESPINGO: Emissao = { n: 9, cor: [0.28, 0.02, 0.02], alfa: 0.95, tamanho: 0.08, cresce: 0, vel: [0.8, 2.4], subida: 1, vida: [0.5, 0.9], gravidade: 9, arrasto: 1.5, espalha: 0.06 };
 const FUMACA: Emissao = { n: 40, cor: [0.42, 0.5, 0.38], alfa: 0.45, tamanho: 0.5, cresce: 0.5, vel: [0.1, 0.7], subida: 0.6, vida: [1.4, 2.6], gravidade: -0.15, arrasto: 1.2, espalha: 1.2 };
 const POEIRA: Emissao = { n: 14, cor: [0.5, 0.47, 0.42], alfa: 0.45, tamanho: 0.14, cresce: 0.2, vel: [0.6, 1.4], subida: 0.15, vida: [0.35, 0.6], gravidade: 0, arrasto: 3, espalha: 0.2, plano: true };
+// frasco quebrando: cacos de vidro claros e rápidos, e o líquido amarelo-esverdeado espirrando baixo
+const CACOS: Emissao = { n: 10, cor: [0.85, 0.92, 0.9], alfa: 0.9, tamanho: 0.035, cresce: 0, vel: [1.8, 4.2], subida: 1.2, vida: [0.25, 0.5], gravidade: 9, arrasto: 1, espalha: 0.05 };
+const LIQUIDO: Emissao = { n: 16, cor: [0.55, 0.62, 0.16], alfa: 0.85, tamanho: 0.09, cresce: 0.05, vel: [0.8, 2.6], subida: 1.4, vida: [0.45, 0.85], gravidade: 9, arrasto: 1.6, espalha: 0.12 };
+const NEVOA_FRASCO: Emissao = { n: 6, cor: [0.5, 0.58, 0.3], alfa: 0.3, tamanho: 0.45, cresce: 0.6, vel: [0.1, 0.4], subida: 0.3, vida: [0.8, 1.3], gravidade: -0.1, arrasto: 2, espalha: 0.4 };
+// vapor: jato forte para baixo (ativo) e fiapos lentos (aviso)
+const JATO: Emissao = {
+  n: 1, cor: [0.82, 0.84, 0.86], alfa: 0.32, tamanho: 0.22, cresce: 1.3, vel: [3.2, 4.6], subida: 0, vida: [0.55, 0.9],
+  gravidade: -0.6, arrasto: 2.4, espalha: 0.04, jato: { dir: [0, -1, 0], abertura: 0.28 },
+};
+const FIAPO: Emissao = {
+  n: 1, cor: [0.78, 0.8, 0.82], alfa: 0.18, tamanho: 0.12, cresce: 0.5, vel: [0.3, 0.8], subida: 0, vida: [0.6, 1.1],
+  gravidade: -0.3, arrasto: 1.5, espalha: 0.03, jato: { dir: [0, -1, 0], abertura: 0.5 },
+};
 
 export class ParticulasView {
   private readonly pontos: Points;
@@ -81,9 +96,22 @@ export class ParticulasView {
       if (e.tipo === 'impacto') this.emitir(world, this.recuar(e.pos), e.y, e.em === 'parede' ? FAISCA : RESPINGO);
       else if (e.tipo === 'explosao') this.emitir(world, e.pos, alturaPiso(world.grid, e.pos) + 0.5, FUMACA);
       else if (e.tipo === 'pouso') this.emitir(world, world.jogador.pos, world.jogador.y + 0.05, POEIRA);
+      else if (e.tipo === 'frasco_quebra') {
+        const p = this.recuar(e.pos);
+        for (const em of [CACOS, LIQUIDO, NEVOA_FRASCO]) this.emitir(world, p, e.y + 0.05, em);
+      }
     }
     if (this.ativas === 0) return;
     this.avancar(dt);
+  }
+
+  /** Vapor saindo de um bico em (x, y, z): `n` partículas do jato forte (`forte`) ou fiapos do aviso. */
+  emitirVapor(world: World, x: number, y: number, z: number, n: number, forte: boolean): void {
+    const p = this.recuado;
+    p.x = x;
+    p.z = z;
+    const e = forte ? JATO : FIAPO;
+    for (let k = 0; k < n; k++) this.emitir(world, p, y, e);
   }
 
   /** Apaga todas (checkpoint). */
@@ -126,11 +154,20 @@ export class ParticulasView {
       // direção aleatória (no plano, para a poeira) com um empurrão para cima
       const v = e.vel[0] + Math.random() * (e.vel[1] - e.vel[0]);
       const b = Math.random() * Math.PI * 2;
-      const up = e.plano ? 0 : Math.random() * 2 - 1;
-      const h = Math.sqrt(1 - up * up);
-      this.vel[i * 3] = Math.cos(b) * h * v;
-      this.vel[i * 3 + 1] = up * v + e.subida * Math.random();
-      this.vel[i * 3 + 2] = Math.sin(b) * h * v;
+      if (e.jato) {
+        // ao longo da direção do jato, com desvio lateral aleatório
+        const [dx, dy, dz] = e.jato.dir;
+        const lado = Math.random() * e.jato.abertura * v;
+        this.vel[i * 3] = dx * v + Math.cos(b) * lado;
+        this.vel[i * 3 + 1] = dy * v;
+        this.vel[i * 3 + 2] = dz * v + Math.sin(b) * lado;
+      } else {
+        const up = e.plano ? 0 : Math.random() * 2 - 1;
+        const h = Math.sqrt(1 - up * up);
+        this.vel[i * 3] = Math.cos(b) * h * v;
+        this.vel[i * 3 + 1] = up * v + e.subida * Math.random();
+        this.vel[i * 3 + 2] = Math.sin(b) * h * v;
+      }
       this.vida[i] = this.vidaMax[i] = e.vida[0] + Math.random() * (e.vida[1] - e.vida[0]);
       this.alfa[i] = e.alfa;
       this.chao[i] = piso + 0.02;

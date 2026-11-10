@@ -4,11 +4,16 @@ import { solidoDe } from '../doors';
 import { alcanceTiro, visivel } from '../grid';
 import { frente } from '../player';
 import type { Inimigo, World } from '../world';
-import { tipoDe } from './tipos';
+import { alturaCorpo, tipoDe, type TipoInimigo } from './tipos';
 
 /** Distância em planta do inimigo ao jogador. */
 export function distanciaJogador(w: World, i: Inimigo): number {
   return Math.hypot(w.jogador.pos.x - i.pos.x, w.jogador.pos.z - i.pos.z);
+}
+
+/** O jogador está ao alcance `alcance` em planta e na mesma faixa de altura do tipo (golpes dos chefes). */
+export function aoAlcance(w: World, i: Inimigo, t: TipoInimigo, alcance: number): boolean {
+  return distanciaJogador(w, i) <= alcance && Math.abs(w.jogador.y - i.y) <= t.altura / 2;
 }
 
 /** Até onde o inimigo enxerga: menos com a lanterna do jogador apagada. */
@@ -20,7 +25,7 @@ export function alcanceVisao(w: World, i: Inimigo): number {
 /** Nada entre os olhos do inimigo e os do jogador: paredes, portas fechadas, pisos altos e tetos baixos. */
 export function linhaDeVisao(w: World, i: Inimigo): boolean {
   const j = w.jogador;
-  const ya = i.y + tipoDe(i.tipo).altura * IA.olhos;
+  const ya = i.y + alturaCorpo(i) * IA.olhos;   // deitado, olhos baixos
   return visivel(w.grid, i.pos, j.pos, solidoDe(w), ya, j.y + JOGADOR.olhos);
 }
 
@@ -32,7 +37,7 @@ export function tiroLivre(w: World, i: Inimigo): boolean {
   const j = w.jogador;
   const d = distanciaJogador(w, i);
   if (d < 1e-6) return true;
-  const y0 = i.y + tipoDe(i.tipo).altura * IA.disparo;
+  const y0 = i.y + alturaCorpo(i) * IA.disparo;
   const inclinacao = (j.y + IA.peitoJogador - y0) / d;
   const dir = { x: j.pos.x - i.pos.x, z: j.pos.z - i.pos.z };
   return alcanceTiro(w.grid, i.pos, dir, d, solidoDe(w), y0, inclinacao) >= d;

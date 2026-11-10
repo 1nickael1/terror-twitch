@@ -70,9 +70,13 @@ export class Coletor {
     this.porSlot.set(slot, lista);
   }
 
-  /** Cria as malhas no grupo. `semSombra`: slots que não projetam sombra (vidro, telas). */
-  finalizar(rec: Recursos, grupo: Group, semSombra: ReadonlySet<string>): void {
-    for (const [slot, lista] of this.porSlot) {
+  /**
+   * Cria as malhas no grupo. `semSombra`: slots que não projetam sombra (vidro, telas). `renomear`: slot do
+   * coletor → slot do material (revestimento da fase; C3.5, correção 1); o que não está nele fica igual.
+   */
+  finalizar(rec: Recursos, grupo: Group, semSombra: ReadonlySet<string>, renomear: Readonly<Record<string, string>> = {}): void {
+    for (const [origem, lista] of this.porSlot) {
+      const slot = renomear[origem] ?? origem;
       if (lista.length === 0) continue;
       const unida = mergeGeometries(lista, false);
       for (const g of lista) g.dispose();

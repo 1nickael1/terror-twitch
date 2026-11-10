@@ -2,7 +2,7 @@
 import { TENSAO } from './balance';
 import type { World } from './world';
 
-/** alvo de tensão em [0, 1] a partir do estado atual (o chefe acordado soma `chefeAcordado`; em investida, mais `chefeInvestida`) */
+/** alvo de tensão em [0, 1] a partir do estado atual (o chefe acordado soma `chefeAcordado`; em investida (096) ou tocando (049), mais `chefeInvestida`) */
 export function tensaoAlvo(w: World): number {
   let ameaca = 0;
   for (const i of w.inimigos) {
@@ -11,7 +11,9 @@ export function tensaoAlvo(w: World): number {
   }
   const c = w.chefe;
   if (c && c.fase !== 'inerte' && c.fase !== 'morto') {
-    ameaca += TENSAO.chefeAcordado + (c.fase === 'investida' ? TENSAO.chefeInvestida : 0);
+    // o golpe a caminho (investida do 096, toque do 049) soma mais
+    const golpe = c.fase === 'investida' || c.fase === 'tocando';
+    ameaca += TENSAO.chefeAcordado + (golpe ? TENSAO.chefeInvestida : 0);
   }
   let alvo = ameaca + (w.alarme ? TENSAO.alarme : 0);
   if (alvo > 0 && w.jogador.vida < TENSAO.vidaBaixa) alvo += TENSAO.pesoVidaBaixa;

@@ -64,7 +64,9 @@ export const MUNICAO_PADRAO_PICKUP = 10;
  * por esse tempo, desiste e vai à suspeita; `olharEmVolta`/`giroOlhando` (rad/s): o que faz ao
  * chegar ao ponto suspeito; `emboscadaPerto`/`emboscadaCostas`: até onde o emboscador percebe o
  * jogador (de costas para ele, mais longe); `acordar`: fração do raio do ruído que acorda quem dorme;
- * `chegada`: parado por bloqueio a menos disso do destino, conta como chegou.
+ * `chegada`: parado por bloqueio a menos disso do destino, conta como chegou; `levantar`: tempo do
+ * emboscador deitado (`TipoInimigo.deitado`) se levantando antes de perseguir (C3.2); `alturaDeitado` (m): altura
+ * do corpo deitado (deitado dormindo, e quem levanta até faltar `levantar / 2`) no tiro e nos olhos (C3.2, correção 1).
  * Alturas (fração da altura do tipo): `olhos`, `disparo`. Do jogador (m acima dos pés):
  * `peitoJogador` é a mira do projétil, `alturaJogador` o topo do corpo que o projétil acerta.
  */
@@ -73,6 +75,7 @@ export const IA = {
   fracaoPatrulha: 0.4, fracaoSuspeita: 0.6,
   emboscadaPerto: 5, emboscadaCostas: 9, acordar: 0.5, chegada: 0.75,
   olhos: 0.9, disparo: 0.7, peitoJogador: 1.1, alturaJogador: 1.8, vidaProjetil: 4,
+  levantar: 0.8, alturaDeitado: 0.45,
 } as const;
 /**
  * Tensão (guia da música), em [0, 1]. Cada inimigo vivo em perseguição, ataque ou dor vale
@@ -85,6 +88,16 @@ export const TENSAO = {
   subida: 3.0, descida: 0.5,
   chefeAcordado: 0.5, chefeInvestida: 0.2,
 } as const;
+/**
+ * Sirene: ligar o alarme (ou religá-lo) faz o som tocar por `duracao` segundos; depois só as
+ * luzes giratórias seguem `world.alarme`. Um alarme sonoro de minutos cansa (playtest pós-CP2).
+ */
+export const SIRENE = { duracao: 12 } as const;
+/**
+ * Perigos de área (ultravioleta, vapor; números de cada um na fase): o dano no jogador é contínuo,
+ * mas o evento `dano_jogador` (clarão do HUD, som de dor) sai em pulsos de `pulsoDano` segundos.
+ */
+export const PERIGO_AREA = { pulsoDano: 0.5 } as const;
 /**
  * Chefe da fase 1 (entidade 096). O tipo `entidade096` em `TIPOS` tem vida, velocidade, dano etc.;
  * aqui ficam as regras próprias. Tempos em segundos, distâncias em metros, ângulos em radianos.
@@ -100,4 +113,21 @@ export const CHEFE_096 = {
   olharAngulo: (6 * Math.PI) / 180, olharTempo: 1.5, distanciaDespertar: 8, despertar: 2.5,
   arrombar: 3, investidaVel: 15, investidaMax: 1.6, investidaGolpe: 1.3, pausa: 2.2, retomada: 3,
   velocidadePerseguicao: 12, preparoInvestida: 0.5, passoMetros: 2.5,
+} as const;
+/**
+ * Chefe da fase 2 (entidade 049). O tipo `entidade049` em `TIPOS` tem vida, velocidade (caminhando), dano do
+ * toque, `preparo` do toque e `cadencia` entre toques; aqui ficam as regras próprias (C3.2). Tempos em segundos,
+ * distâncias em metros. `despertar`: parado virando para o jogador; `primeiraReanimacao`/`intervaloReanimar`/
+ * `intervaloReanimarFerido` (vida < 50%): espera até tentar levantar um corpo; `alcanceReanimar`: raio da busca;
+ * `reanimar`: parado reanimando; `levantar`: o corpo em `levantando`; `vidaReanimado`: fração da vida do tipo;
+ * `maxLevantados`: vivos levantados por ele ao mesmo tempo; `longe`/`tempoLonge`: jogador além disso por esse tempo
+ * o deixa `apressado` (por `apressado` s a `velocidadeApressado`); `alcanceToque`: começa o toque; `folgaToque`:
+ * multiplica o alcance no fim do preparo; `passoMetros`: metros entre dois `chefe_passo`; `retomada`: `despertando`
+ * ao restaurar um checkpoint com ele acordado.
+ */
+export const CHEFE_049 = {
+  despertar: 2, intervaloReanimar: 8, primeiraReanimacao: 4, intervaloReanimarFerido: 5,
+  alcanceReanimar: 14, reanimar: 1.6, levantar: 1.2, vidaReanimado: 0.6, maxLevantados: 4,
+  longe: 10, tempoLonge: 6, velocidadeApressado: 4.5, apressado: 2.5, alcanceToque: 1.4, folgaToque: 1.25,
+  passoMetros: 1.2, retomada: 3,
 } as const;

@@ -1,6 +1,6 @@
 // tests/sim/ajuda.ts
 import type { Coord } from '../../src/sim/grid';
-import type { ChefeDef, LevelDef } from '../../src/sim/fase';
+import type { ChefeDef, InimigoDef, LevelDef } from '../../src/sim/fase';
 import { criarInimigo } from '../../src/sim/ai/comum';
 import { TIPOS } from '../../src/sim/ai/tipos';
 import type { Inimigo, World } from '../../src/sim/world';
@@ -30,10 +30,16 @@ export function faseComChefe(planta: string, chefe: Partial<ChefeDef> & { em: Ch
   });
 }
 
-export function porInimigo(w: World, tipo: string, coord: Coord): Inimigo {
-  const i = criarInimigo(w, { em: coord, tipo });
+/** Fase mínima com o chefe 049 em `em` (mesmas regras de `faseComChefe`). */
+export function faseComChefe049(planta: string, chefe: Partial<ChefeDef> & { em: ChefeDef['em'] }, extra: Partial<LevelDef> = {}): LevelDef {
+  return faseComChefe(planta, { tipo: 'entidade049', nome: 'SCP-049', ...chefe }, extra);
+}
+
+/** Cria e põe o inimigo no mundo; conta no total como a fase contaria (corpo só ao levantar). */
+export function porInimigo(w: World, tipo: string, coord: Coord, extra: Partial<InimigoDef> = {}): Inimigo {
+  const i = criarInimigo(w, { em: coord, tipo, ...extra });
   w.inimigos.push(i);
-  w.stats.totalInimigos++;
+  if (i.contado) w.stats.totalInimigos++;
   return i;
 }
 

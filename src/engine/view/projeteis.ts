@@ -1,13 +1,15 @@
 // Projéteis e nuvens. Projéteis: um `InstancedMesh` de núcleo e outro de halo aditivo (quads
 // voltados para a câmera, com textura macia), cor por
 // origem (os de inimigo claros e bem visíveis, porque o jogador precisa desviar; a cápsula do
-// lançador esverdeada). A posição recua `(1 - alfa)` de passo pela velocidade, como a câmera.
+// lançador esverdeada). Projétil com `arco` (frasco do enfermeiro): um frasco girando (malha
+// própria, instanciada) com halo fraco. A posição recua `(1 - alfa)` de passo pela velocidade, como a câmera.
 // Nuvens (`world.nuvens`, casadas por índice): um grupo de planos aditivos voltados para a
 // câmera, girando devagar dentro do raio; somem conforme `resta` chega a zero.
 import {
-  AdditiveBlending, Color, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, PlaneGeometry, Quaternion,
-  SphereGeometry, Vector3, type PerspectiveCamera,
+  AdditiveBlending, BoxGeometry, Color, CylinderGeometry, Euler, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial,
+  PlaneGeometry, Quaternion, SphereGeometry, Vector3, type PerspectiveCamera,
 } from 'three';
+import { pintar, unir } from './inimigosModelos';
 import { TIPOS } from '../../sim/ai/tipos';
 import { NUVEM } from '../../sim/balance';
 import { alturaPiso } from '../../sim/grid';
@@ -24,6 +26,8 @@ const COR_INIMIGO = new Color(0xfff0b0);
 const HALO_INIMIGO = new Color(0xff8a30);
 const COR_LANCADOR = new Color(0xa8ff70);
 const HALO_LANCADOR = new Color(0x3fa040);
+/** halo fraco do frasco (amarelo-esverdeado): o vidro em si é a malha `frascos` */
+const HALO_FRASCO = new Color(0x6a7a22);
 /** raio visual do núcleo (m) quando o tipo não diz */
 const RAIO_PADRAO = 0.12;
 
@@ -33,10 +37,12 @@ interface VistaNuvem { grupo: Group; mat: MeshBasicMaterial; planos: PlanoNuvem[
 export class ProjeteisView {
   private readonly nucleo: InstancedMesh;
   private readonly halo: InstancedMesh;
+  private readonly frascos: InstancedMesh;
   private readonly nuvens: VistaNuvem[] = [];
   private readonly m = new Matrix4();
   private readonly pos = new Vector3();
   private readonly rot = new Quaternion();
+  private readonly giro = new Euler();
   private readonly esc = new Vector3();
   private t = 0;
 
@@ -59,6 +65,7 @@ export class ProjeteisView {
       this.nucleo.setColorAt(i, COR_INIMIGO);
       this.halo.setColorAt(i, HALO_INIMIGO);
     }
+    this.frascos = this.criarFrascos(rec, grupo);
 
     for (let n = 0; n < MAX_NUVENS; n++) {
       const mat = rec.mat(new MeshBasicMaterial({
@@ -82,6 +89,22 @@ export class ProjeteisView {
     }
   }
 
+  /** Frascos em voo (projéteis com `arco`): vidro com líquido, girando; um halo fraco ajuda a ler o arco. */
+  private criarFrascos(rec: Recursos, grupo: Group): InstancedMesh {
+    const partes = [
+      pintar(new CylinderGeometry(0.055, 0.06, 0.16, 8), 0x9fbf6a),               // corpo com o líquido
+      pintar(new CylinderGeometry(0.025, 0.035, 0.06, 6).translate(0, 0.1, 0), 0xc8dcd6), // gargalo de vidro
+      pintar(new CylinderGeometry(0.028, 0.028, 0.03, 6).translate(0, 0.145, 0), 0x6a4a32), // rolha
+      pintar(new BoxGeometry(0.07, 0.05, 0.005).translate(0, -0.01, -0.06), 0xe8e4d6),  // rótulo
+    ];
+    const im = rec.obj(new InstancedMesh(rec.geo(unir(partes)), rec.mat(new MeshBasicMaterial({ vertexColors: true })), MAX_PROJETEIS));
+    im.count = 0;
+    im.frustumCulled = false;
+    im.name = 'projeteis-frascos';
+    grupo.add(im);
+    return im;
+  }
+
   sincronizar(world: World, dt: number, alfa = 1): void {
     this.t += dt;
     this.sincronizarProjeteis(world, alfa);
@@ -92,28 +115,43 @@ export class ProjeteisView {
   limpar(): void {
     this.nucleo.count = 0;
     this.halo.count = 0;
+    this.frascos.count = 0;
     for (const n of this.nuvens) n.grupo.visible = false;
   }
 
   private sincronizarProjeteis(world: World, alfa: number): void {
     const atraso = (1 - Math.min(1, Math.max(0, alfa))) * PASSO;
     let i = 0;
+    let f = 0;
     for (const p of world.projeteis) {
-      if (i >= MAX_PROJETEIS) break;
+      if (i + f >= MAX_PROJETEIS) break;
       const doLancador = p.de === 'jogador';
       const t = Object.prototype.hasOwnProperty.call(TIPOS, p.tipo) ? TIPOS[p.tipo] : undefined;
       const raio = doLancador ? 0.09 : (t?.projetil?.raio ?? RAIO_PADRAO) * 0.8;
       this.pos.set(p.pos.x - p.vel.x * atraso, p.y - p.vy * atraso, p.pos.z - p.vel.z * atraso);
-      this.esc.setScalar(raio);
-      this.nucleo.setMatrixAt(i, this.m.compose(this.pos, this.rot, this.esc));
-      this.esc.setScalar(raio * HALO);
-      this.halo.setMatrixAt(i, this.m.compose(this.pos, this.camera.quaternion, this.esc));
-      this.nucleo.setColorAt(i, doLancador ? COR_LANCADOR : COR_INIMIGO);
-      this.halo.setColorAt(i, doLancador ? HALO_LANCADOR : HALO_INIMIGO);
-      i++;
+      // o halo de todos vai na mesma malha: índice i + f
+      const h = i + f;
+      if (!doLancador && t?.projetil?.arco) {
+        // frasco girando no ar (a rotação sai do id e do tempo: cada um gira diferente)
+        this.giro.set(this.t * 9 + p.id, p.id * 0.7, this.t * 4 + p.id * 1.3);
+        this.esc.setScalar(1);
+        this.frascos.setMatrixAt(f, this.m.compose(this.pos, this.rot.setFromEuler(this.giro), this.esc));
+        this.esc.setScalar(raio * HALO * 0.8);
+        this.halo.setColorAt(h, HALO_FRASCO);
+        f++;
+      } else {
+        this.esc.setScalar(raio);
+        this.nucleo.setMatrixAt(i, this.m.compose(this.pos, this.rot.identity(), this.esc));
+        this.nucleo.setColorAt(i, doLancador ? COR_LANCADOR : COR_INIMIGO);
+        this.esc.setScalar(raio * HALO);
+        this.halo.setColorAt(h, doLancador ? HALO_LANCADOR : HALO_INIMIGO);
+        i++;
+      }
+      this.halo.setMatrixAt(h, this.m.compose(this.pos, this.camera.quaternion, this.esc));
     }
     this.publicar(this.nucleo, i);
-    this.publicar(this.halo, i);
+    this.publicar(this.frascos, f);
+    this.publicar(this.halo, i + f);
   }
 
   private publicar(im: InstancedMesh, n: number): void {

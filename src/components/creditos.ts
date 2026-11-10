@@ -2,6 +2,7 @@
 
 /** Conforme o bloco de licença da página do artigo na SCP Wiki. */
 export const AUTOR_096 = 'Dr Dan';
+export const AUTOR_049 = 'Gabriel Jade; reescrito por djkaktus e Gabriel Jade';
 
 export interface Link { texto: string; url: string }
 
@@ -11,6 +12,7 @@ export const CREDITOS = {
   fundacao: { texto: 'SCP Foundation', url: 'https://scp-wiki.wikidot.com' } satisfies Link,
   entidades: [
     { numero: 'SCP-096', autor: AUTOR_096, url: 'https://scp-wiki.wikidot.com/scp-096' },
+    { numero: 'SCP-049', autor: AUTOR_049, url: 'https://scp-wiki.wikidot.com/scp-049' },
   ],
   licenca: {
     texto: 'Creative Commons Atribuição-CompartilhaIgual 3.0 (CC BY-SA 3.0)',

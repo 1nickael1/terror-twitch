@@ -38,8 +38,8 @@ function alcance(de: Coord, barradas: readonly Coord[]): Set<string> {
 }
 
 describe('fase 1', () => {
-  it('está no índice e sozinha', () => {
-    expect(FASES).toEqual([fase1]);
+  it('é a primeira do índice', () => {
+    expect(FASES[0]).toBe(fase1);
   });
 
   it('passa no validador com os mínimos do adendo', () => {

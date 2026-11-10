@@ -1,18 +1,21 @@
 // Inimigos: um esqueleto por inimigo (modelos em `inimigosModelos.ts`) com animação procedural
 // por estado. Casa por id a cada quadro; nada do World é guardado entre quadros. O estado
-// puramente visual (fase da passada, tempo desde a morte, golpe) vive aqui, indexado por id.
-// O chefe (`world.chefe.inimigoId`) usa as poses de `chefePoses.ts` pela fase dele; acerto nele é
-// um tremor curto, sem clarão (ele leva centenas de tiros), e a queda dura mais.
+// puramente visual (fase da passada, tempo desde a morte, golpe, progresso do levantar) vive aqui,
+// indexado por id. Corpo que volta de `morto` (reanimado pelo 049) passa por `levantando`: a queda
+// zera e a pose sobe do chão. O chefe (`world.chefe.inimigoId`) usa as poses de `chefePoses.ts` pela
+// fase dele (096 ou 049); acerto nele é um tremor curto, sem clarão, e a queda dura mais.
 // Inimigo sem linha de visão da grade até o jogador (e a mais de `PERTO_SEMPRE`) não é desenhado (`oclusao.ts`).
 import { Group } from 'three';
 import { tipoDe } from '../../sim/ai/tipos';
-import { CHEFE_096 } from '../../sim/balance';
+import { CHEFE_049, CHEFE_096 } from '../../sim/balance';
 import { solidoDe } from '../../sim/doors';
 import type { SimEvent } from '../../sim/eventos';
 import type { EstadoChefe, Inimigo, World } from '../../sim/world';
-import { calcularPoseChefe, GOLPE_CHEFE, PERTO_GOLPE } from './chefePoses';
+import { calcularPoseChefe, calcularPoseChefe049, GOLPE_CHEFE, PERTO_GOLPE } from './chefePoses';
 import { ModelosInimigos, type Rig } from './inimigosModelos';
-import { CHAVES, DOR_VISUAL, GOLPE, aproximar, calcularPose, novaPose, type Pose } from './inimigosPoses';
+import {
+  CHAVES, DOR_VISUAL, GOLPE, aproximar, calcularPose, desenhadoComoCorpo, novaPose, progressoLevantar, type Pose,
+} from './inimigosPoses';
 import { aVista } from './oclusao';
 import type { Recursos } from './recursos';
 
@@ -24,6 +27,19 @@ const SUAVE_YAW = 14;         // 1/s
 const SUAVE_POSE = 18;        // 1/s
 const SUAVE_VEL = 10;         // 1/s
 const TELEPORTE = 1;          // m entre dois passos: não interpola
+/** duração mínima (s) do levantar (evita divisão por zero se o `timer` já chegou a 0) */
+const MIN_LEVANTAR = 0.2;
+
+/** Corpo se contorcendo no chão (o chefe 049 o está reanimando): somado à pose deitada. */
+function convulsao(p: Pose, t: number): void {
+  p.troncoZ += Math.sin(t * 21) * 0.12;
+  p.cabecaZ += Math.sin(t * 27 + 1) * 0.3;
+  p.cabecaX += Math.abs(Math.sin(t * 9)) * 0.25;
+  p.bracoEX += Math.sin(t * 17 + 2) * 0.35;
+  p.bracoDX += Math.sin(t * 15) * 0.35;
+  p.pernaEX += Math.sin(t * 13 + 1) * 0.15;
+  p.pernaDX += Math.sin(t * 19) * 0.15;
+}
 
 interface Vista {
   tipo: string; rig: Rig;
@@ -37,6 +53,10 @@ interface Vista {
   quadro: number;
   /** é o chefe: poses próprias, queda e golpe mais longos, acerto sem clarão */
   chefe: boolean; queda: number; duracaoGolpe: number;
+  /** levantando: progresso 0..1 e o `timer` visto ao começar (a duração) */
+  levantar: number; levantarTotal: number;
+  /** chefe 049: a última fase vista e a duração do despertar em curso (timer visto ao começar) */
+  faseChefe: string; despertarTotal: number;
 }
 
 const alvo = novaPose();
@@ -147,6 +167,9 @@ export class InimigosView {
       // já morto ao aparecer (checkpoint): deitado desde o início
       morto: 0, poseMorte: novaPose(), pose: novaPose(), quadro: this.quadro, preparo: 0,
       chefe: chefe !== null, queda: chefe ? QUEDA_CHEFE : QUEDA, duracaoGolpe: chefe ? GOLPE_CHEFE : GOLPE,
+      levantar: 0, levantarTotal: Math.max(MIN_LEVANTAR, i.timer),
+      // aparecendo já despertando (restauro): a duração é o timer de agora
+      faseChefe: '', despertarTotal: chefe?.tipo === 'entidade049' && chefe.fase === 'despertando' ? chefe.timer : 0,
     };
     if (i.modo === 'morto') v.morto = v.queda;
     v.preparo = this.poseAlvo(v, i, chefe, world);
@@ -174,9 +197,23 @@ export class InimigosView {
     }
   }
 
-  /** Pose alvo em `alvo`; devolve o progresso do preparo do ataque (0 para o chefe). */
+  /** Pose alvo em `alvo`; devolve o progresso do preparo do ataque (o aviso do toque no 049; 0 no 096). */
   private poseAlvo(v: Vista, i: Inimigo, chefe: EstadoChefe | null, world: World): number {
-    if (!chefe) return calcularPose(alvo, v.rig.base, v, i);
+    if (!chefe) {
+      const k = calcularPose(alvo, v.rig.base, v, i);
+      // o corpo que o chefe 049 está reanimando se contorce no chão
+      if (i.modo === 'morto' && world.chefe?.tipo === 'entidade049' && world.chefe.fase === 'reanimando' && world.chefe.corpoAlvo === i.id) {
+        convulsao(alvo, v.t);
+      }
+      return k;
+    }
+    if (chefe.tipo === 'entidade049') {
+      return calcularPoseChefe049(alvo, v.rig.base, v, {
+        // o `Inimigo` morre um passo antes de a fase do chefe virar `morto`
+        fase: i.modo === 'morto' ? 'morto' : chefe.fase, timer: chefe.timer,
+        preparo: tipoDe(i.tipo).preparo, reanimar: CHEFE_049.reanimar, despertarTotal: v.despertarTotal,
+      });
+    }
     const j = world.jogador;
     calcularPoseChefe(alvo, v.rig.base, v, {
       // o `Inimigo` morre um passo antes de a fase do chefe virar `morto`
@@ -189,14 +226,26 @@ export class InimigosView {
   }
 
   private animar(v: Vista, i: Inimigo, chefe: EstadoChefe | null, world: World, simDt: number, dt: number, alfa: number): void {
-    // transições de estado (o chefe golpeia pelo evento `inimigo_ataque`)
+    // transições de estado (o chefe 096 golpeia pelo evento `inimigo_ataque`; o 049 não tem golpe)
     if (!v.chefe && v.modo === 'ataque' && i.modo === 'perseguicao') v.golpe = 0;
-    // golpe do chefe só vale na perseguição: não volta com o braço erguido depois da investida
-    if (chefe && chefe.fase !== 'perseguicao') v.golpe = -1;
+    // golpe do 096 só vale na perseguição: não volta com o braço erguido depois da investida
+    if (chefe && (chefe.tipo !== 'entidade096' || chefe.fase !== 'perseguicao')) v.golpe = -1;
     if (i.modo === 'dor' && v.modo !== 'dor') v.dor = 0;
     if (i.modo === 'morto' && v.modo !== 'morto') {
       Object.assign(v.poseMorte, v.pose);
       v.morto = 0;
+    }
+    if (i.modo === 'levantando' && v.modo !== 'levantando') {
+      // começou a levantar (corpo reanimado ou emboscador deitado): a queda de corpo zera e a pose
+      // parte do chão; a duração é o `timer` visto agora (mais o que já correu neste passo)
+      v.morto = 0;
+      v.levantarTotal = Math.max(MIN_LEVANTAR, i.timer + simDt);
+    }
+    v.levantar = i.modo === 'levantando' ? progressoLevantar(i.timer, v.levantarTotal) : 0;
+    if (chefe?.tipo === 'entidade049') {
+      // o despertar do 049 dura `CHEFE_049.despertar`, ou o timer visto ao começar (restauro: retomada)
+      if (chefe.fase === 'despertando' && v.faseChefe !== 'despertando') v.despertarTotal = chefe.timer + simDt;
+      v.faseChefe = chefe.fase;
     }
     v.modo = i.modo;
     v.t += simDt;
@@ -239,8 +288,9 @@ export class InimigosView {
     ossos.pernaD.rotation.x = p.pernaDX;
     ossos.antebracoE?.rotation.set(p.antebracoEX, 0, 0);
     ossos.antebracoD?.rotation.set(p.antebracoDX, 0, 0);
-    // no fim da queda: olhos e visor apagam (o crachá fica) e nenhuma malha projeta sombra
-    const vivo = i.modo !== 'morto' || v.morto < v.queda;
+    // no fim da queda: olhos e visor apagam (o crachá fica) e nenhuma malha projeta sombra; o
+    // emboscador deitado dormindo já é desenhado como corpo (olhos apagados até levantar)
+    const vivo = i.modo === 'morto' ? v.morto < v.queda : !desenhadoComoCorpo(i);
     for (const m of malhas) {
       if (m.apaga) m.malha.visible = vivo;
       m.malha.castShadow = m.sombra && vivo;

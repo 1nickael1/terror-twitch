@@ -2,12 +2,12 @@
 import { avancarInimigos } from './ai/comum';
 import { avancarPortas, solidoDe, usar } from './doors';
 import type { SimEvent } from './eventos';
-import { coordDe, type Coord, type Vec2 } from './grid';
+import { coordDe, naArea, type Coord, type Vec2 } from './grid';
 import { avancarPerigos } from './perigos';
 import { coletar } from './pickups';
 import { moverJogador, olhar } from './player';
 import { suavizarTensao, tensaoAlvo } from './tension';
-import { avancarGatilhos, naArea } from './triggers';
+import { avancarGatilhos } from './triggers';
 import { atirar, avancarNuvens, avancarProjeteis, trocarArma } from './weapons';
 import type { InputFrame, World } from './world';
 
@@ -112,6 +112,8 @@ export function step(w: World, input: InputFrame, dt: number): SimEvent[] {
   // 11. tempo e tensão
   w.stats.tempo += dt;
   w.t += dt;
+  w.relogio += dt;   // volta no restauro (condição `tempo`); `stats.tempo` não
+  w.sirene = Math.max(0, w.sirene - dt);
   w.tensao = suavizarTensao(w.tensao, tensaoAlvo(w), dt);
   return eventos;
 }

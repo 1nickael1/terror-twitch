@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { calcularPoseChefe, GOLPE_CHEFE, type EntradaChefe } from '../../src/engine/view/chefePoses';
+import {
+  calcularPoseChefe, calcularPoseChefe049, GOLPE_CHEFE, type EntradaChefe, type EntradaChefe049,
+} from '../../src/engine/view/chefePoses';
 import { DOR_VISUAL, novaPose, type EstadoVisual, type Pose } from '../../src/engine/view/inimigosPoses';
-import { ENTIDADE096 } from '../../src/engine/view/moldeChefe';
+import { ENTIDADE049, ENTIDADE096 } from '../../src/engine/view/moldeChefe';
+import { CHEFE_049 } from '../../src/sim/balance';
 
 const B = ENTIDADE096.base;
 const vis = (p: Partial<EstadoVisual> = {}): EstadoVisual => ({ t: 1, vel: 0, passada: 0, golpe: -1, dor: DOR_VISUAL, ...p });
@@ -99,5 +102,83 @@ describe('calcularPoseChefe', () => {
 
   it('determinística: mesmas entradas, mesma pose', () => {
     expect(pose(vis({ t: 2.5 }), ent({ fase: 'pausa' }))).toEqual(pose(vis({ t: 2.5 }), ent({ fase: 'pausa' })));
+  });
+});
+
+describe('calcularPoseChefe049', () => {
+  const B49 = ENTIDADE049.base;
+  const e49 = (p: Partial<EntradaChefe049> = {}): EntradaChefe049 => ({ fase: 'inerte', timer: 0, preparo: 0.9, reanimar: 1.6, ...p });
+  function pose49(v: EstadoVisual, e: EntradaChefe049): { p: Pose; aviso: number } {
+    const p = novaPose();
+    const aviso = calcularPoseChefe049(p, B49, v, e);
+    return { p, aviso };
+  }
+
+  it('inerte: ereto, cabeça baixa, mãos juntas à frente', () => {
+    const { p, aviso } = pose49(vis(), e49());
+    expect(Math.abs(p.troncoX)).toBeLessThan(0.15);
+    expect(p.cabecaX).toBeLessThan(-0.3);
+    expect(p.bracoEZ).toBeGreaterThan(0);   // braço esquerdo vem para dentro
+    expect(p.bracoDZ).toBeLessThan(0);
+    expect(aviso).toBe(0);
+  });
+
+  it('despertando: ergue a cabeça e abre os braços até o fim', () => {
+    const comeco = pose49(vis(), e49({ fase: 'despertando', timer: 2 })).p;
+    const fim = pose49(vis(), e49({ fase: 'despertando', timer: 0 })).p;
+    expect(fim.cabecaX).toBeGreaterThan(comeco.cabecaX + 0.3);
+    expect(fim.bracoEZ).toBeLessThan(-0.3);
+    expect(fim.bracoDZ).toBeGreaterThan(0.3);
+  });
+
+  it('despertando: a duração vem de CHEFE_049.despertar; no restauro (timer maior visto ao começar), dela', () => {
+    const meio = pose49(vis(), e49({ fase: 'despertando', timer: CHEFE_049.despertar / 2 })).p;
+    const comeco = pose49(vis(), e49({ fase: 'despertando', timer: CHEFE_049.despertar })).p;
+    const fim = pose49(vis(), e49({ fase: 'despertando', timer: 0 })).p;
+    expect(meio.cabecaX).toBeCloseTo((comeco.cabecaX + fim.cabecaX) / 2, 5);
+    // restauro: começa com `retomada` s e já se mexe desde o início (não fica parado no primeiro segundo)
+    const total = CHEFE_049.retomada;
+    const a = pose49(vis(), e49({ fase: 'despertando', timer: total, despertarTotal: total })).p;
+    const b = pose49(vis(), e49({ fase: 'despertando', timer: total - 0.5, despertarTotal: total })).p;
+    expect(a.cabecaX).toBeCloseTo(comeco.cabecaX, 5);
+    expect(b.cabecaX).toBeGreaterThan(a.cabecaX);
+  });
+
+  it('tocando: o braço direito se estende ao jogador e o aviso (palma) cresce com o preparo', () => {
+    const comeco = pose49(vis(), e49({ fase: 'tocando', timer: 0.9 }));
+    const meio = pose49(vis(), e49({ fase: 'tocando', timer: 0.45 }));
+    const fim = pose49(vis(), e49({ fase: 'tocando', timer: 0 }));
+    expect(comeco.aviso).toBeCloseTo(0);
+    expect(meio.aviso).toBeCloseTo(0.5);
+    expect(fim.aviso).toBe(1);
+    expect(fim.p.bracoDX).toBeGreaterThan(1.4);
+    expect(fim.p.bracoDX).toBeGreaterThan(comeco.p.bracoDX + 1);
+    expect(fim.p.bracoEX).toBeLessThan(0.5);   // só um braço
+  });
+
+  it('reanimando: os dois braços erguidos', () => {
+    const { p, aviso } = pose49(vis(), e49({ fase: 'reanimando', timer: 0.8 }));
+    expect(p.bracoEX).toBeGreaterThan(2.2);
+    expect(p.bracoDX).toBeGreaterThan(2.2);
+    expect(aviso).toBe(0);
+    // no começo os braços ainda sobem
+    const comeco = pose49(vis(), e49({ fase: 'reanimando', timer: 1.6 })).p;
+    expect(comeco.bracoEX).toBeLessThan(1);
+  });
+
+  it('apressado inclina mais e dá passada mais larga que caminhando', () => {
+    const v = vis({ vel: 4, passada: Math.PI / 2 });
+    const andando = pose49(vis({ vel: 2.2, passada: Math.PI / 2 }), e49({ fase: 'caminhando' })).p;
+    const pressa = pose49(v, e49({ fase: 'apressado' })).p;
+    expect(pressa.troncoX).toBeLessThan(andando.troncoX - 0.2);
+    expect(Math.abs(pressa.pernaEX)).toBeGreaterThan(Math.abs(andando.pernaEX));
+  });
+
+  it('morto: de bruços no chão', () => {
+    expect(pose49(vis(), e49({ fase: 'morto' })).p.corpoX).toBeCloseTo(-Math.PI / 2, 1);
+  });
+
+  it('determinística', () => {
+    expect(pose49(vis({ t: 3.1 }), e49({ fase: 'reanimando', timer: 1 }))).toEqual(pose49(vis({ t: 3.1 }), e49({ fase: 'reanimando', timer: 1 })));
   });
 });

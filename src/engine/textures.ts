@@ -1,7 +1,10 @@
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three';
+import { texturaAzulejo } from './view/texturasCenario';
 
 export interface Textures {
   concreto: CanvasTexture;
+  /** paredes de revestimento `azulejo` (fase 2; C3.5, correção 1) */
+  azulejo: CanvasTexture;
   piso: CanvasTexture;
   teto: CanvasTexture;
   porta: CanvasTexture;
@@ -140,5 +143,5 @@ export function createTextures(): Textures {
       128,
     );
 
-  return { concreto, piso, teto, porta, placa };
+  return { concreto, azulejo: texturaAzulejo(), piso, teto, porta, placa };
 }

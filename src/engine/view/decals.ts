@@ -13,10 +13,16 @@ import { CELL, alturaPiso, celula, centro, coordDe, type Grid } from '../../sim/
 import type { World } from '../../sim/world';
 import { impactoEmPortaOuJanela } from './marcasTiro';
 import type { Recursos } from './recursos';
-import { texturaFaixa, texturaFuro, texturaMarca, texturaQueimado, texturaSangue } from './texturasEfeitos';
+import {
+  texturaFaixa, texturaFuro, texturaMarca, texturaQueimado, texturaRespingoQuimico, texturaSangue,
+} from './texturasEfeitos';
 
 const MAX_MARCAS = 64;
 const TAMANHO_MARCA = 0.14;
+const MAX_RESPINGOS = 16;
+const TAMANHO_RESPINGO = 1.3;
+/** quebra a até isto (m) acima do piso deixa poça no chão */
+const ALTURA_RESPINGO = 0.4;
 const TAMANHO: Record<DecalDef['tipo'], number> = { sangue: 1.5, queimado: 1.7, marca: 1.0, faixa: CELL };
 /** decalques que cobrem a célula inteira, alinhados, sem giro nem escala aleatória (emendam com os vizinhos) */
 const ALINHADOS: ReadonlySet<DecalDef['tipo']> = new Set(['faixa']);
@@ -35,6 +41,10 @@ export class DecalsView {
   private readonly marcas: InstancedMesh;
   private proxima = 0;
   private usadas = 0;
+  /** poças dos frascos quebrados (pool, recicla a mais antiga) */
+  private readonly respingos: InstancedMesh;
+  private proximoRespingo = 0;
+  private usadosRespingo = 0;
   private readonly m = new Matrix4();
   private readonly pos = new Vector3();
   private readonly normal = new Vector3();
@@ -66,11 +76,23 @@ export class DecalsView {
     this.marcas.frustumCulled = false;
     this.marcas.count = 0;
     grupo.add(this.marcas);
+
+    const slotRespingo = rec.slot('decal-respingo', { map: rec.tex(texturaRespingoQuimico()), decal: true, roughness: 0.3 });
+    this.respingos = rec.usar(new InstancedMesh(quad, undefined, MAX_RESPINGOS), slotRespingo);
+    this.respingos.name = 'decal:respingos';
+    this.respingos.receiveShadow = true;
+    this.respingos.frustumCulled = false;
+    this.respingos.count = 0;
+    grupo.add(this.respingos);
   }
 
   sincronizar(world: World, eventos: readonly SimEvent[]): void {
     let mudou = false;
     for (const e of eventos) {
+      if (e.tipo === 'frasco_quebra') {
+        this.respingar(world, e.pos.x, e.y, e.pos.z);
+        continue;
+      }
       if (e.tipo !== 'impacto' || e.em !== 'parede') continue;
       // porta ou janela: só a faísca (a marca ficaria no ar, longe da folha ou do vidro)
       if (impactoEmPortaOuJanela(world, { x: this.camera.position.x, z: this.camera.position.z }, e.pos.x, e.pos.z)) continue;
@@ -80,11 +102,40 @@ export class DecalsView {
     if (mudou) this.marcas.instanceMatrix.needsUpdate = true;
   }
 
-  /** Apaga as marcas de tiro (checkpoint). Os decalques da fase ficam. */
+  /** Apaga as marcas de tiro e os respingos (checkpoint). Os decalques da fase ficam. */
   limparMarcas(): void {
     this.marcas.count = 0;
     this.proxima = 0;
     this.usadas = 0;
+    this.respingos.count = 0;
+    this.proximoRespingo = 0;
+    this.usadosRespingo = 0;
+  }
+
+  /**
+   * Poça do frasco no chão onde ele quebrou (recuada para o lado da câmera, como as faíscas). Quebra no
+   * alto (parede, teto): só as partículas.
+   */
+  private respingar(world: World, x: number, y: number, z: number): void {
+    const cam = this.camera.position;
+    const hx = cam.x - x;
+    const hz = cam.z - z;
+    const h = Math.hypot(hx, hz) || 1;
+    const p = { x: x + (hx / h) * RECUO, z: z + (hz / h) * RECUO };
+    const [col, row] = coordDe(p);
+    if (celula(world.grid, col, row).tipo !== 'piso') return;
+    const piso = alturaPiso(world.grid, p);
+    if (y > piso + ALTURA_RESPINGO) return;
+    this.pos.set(p.x, piso, p.z);
+    this.normal.set(0, 1, 0);
+    this.orientar(Math.random() * Math.PI * 2);
+    const s = TAMANHO_RESPINGO * (0.85 + Math.random() * 0.3);
+    this.esc.set(s, s, 1);
+    this.respingos.setMatrixAt(this.proximoRespingo, this.m.compose(this.pos, this.rot, this.esc));
+    this.proximoRespingo = (this.proximoRespingo + 1) % MAX_RESPINGOS;
+    this.usadosRespingo = Math.min(MAX_RESPINGOS, this.usadosRespingo + 1);
+    this.respingos.count = this.usadosRespingo;
+    this.respingos.instanceMatrix.needsUpdate = true;
   }
 
   private matrizDef(g: Grid, d: DecalDef, i: number): Matrix4 {

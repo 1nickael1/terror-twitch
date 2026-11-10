@@ -70,7 +70,7 @@ export function areaAlcancavel(a: Alcance, area: Area): boolean {
   return celulasDe(area).some((c) => a.noAlcance(c));
 }
 
-export function condicaoAlcancavel(ctx: Contexto, a: Alcance, q: Condicao): boolean {
+export function condicaoAlcancavel(ctx: Contexto, a: Alcance, q: Condicao, vistos: ReadonlySet<string> = new Set()): boolean {
   switch (q.tipo) {
     case 'area':
       return areaAlcancavel(a, q.area);
@@ -89,6 +89,12 @@ export function condicaoAlcancavel(ctx: Contexto, a: Alcance, q: Condicao): bool
     case 'chefe_vida':
     case 'chefe_morto':
       return !ctx.semChefe;   // assume que o jogador mata o chefe (fase sem chefe é outro erro)
+    case 'tempo': {
+      // alcançável quando o gatilho `desde` é (o tempo sempre passa); ciclo de `tempo` = não. `desde` inexistente ou o próprio gatilho: erro em validar.ts
+      const g = ctx.f.gatilhos.find((x) => x.id === q.desde);
+      if (!g || vistos.has(g.id)) return false;
+      return condicaoAlcancavel(ctx, a, g.quando, new Set([...vistos, g.id]));
+    }
   }
 }
 

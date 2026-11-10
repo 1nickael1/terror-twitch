@@ -9,8 +9,8 @@ import { ouve } from '../noise';
 import { resolverOnde } from '../onde';
 import { frente } from '../player';
 import type { Inimigo, World } from '../world';
-import { avancadorDeChefe } from './chefes';
-import { celulaMaisProxima, encarar, irPara, recuar, solidoRota } from './movimento';
+import { iaDeChefe } from './chefes';
+import { celulaMaisProxima, encarar, irPara, normalizar, recuar, solidoRota } from './movimento';
 import { alcanceVisao, distanciaJogador, linhaDeVisao, tiroLivre, ve } from './percepcao';
 import { tipoDe, type TipoInimigo } from './tipos';
 
@@ -22,25 +22,43 @@ function copia(p: Vec2): Vec2 {
   return { x: p.x, z: p.z };
 }
 
-/** Ângulo em (-π, π]. */
-function normalizar(a: number): number {
-  const v = a % (2 * Math.PI);
-  if (v > Math.PI) return v - 2 * Math.PI;
-  if (v <= -Math.PI) return v + 2 * Math.PI;
-  return v;
-}
-
-/** Cria o inimigo no centro da célula. Não o põe em `w.inimigos`: quem chama adiciona. */
+/**
+ * Cria o inimigo no centro da célula. Não o põe em `w.inimigos`: quem chama adiciona (`adicionarInimigo`).
+ * Corpo (`corpo: true`) nasce `morto`, sem vida; tipo `deitado` nasce sempre `dormindo`.
+ */
 export function criarInimigo(w: World, def: InimigoDef): Inimigo {
   const tipo = tipoDe(def.tipo);
   const pos = centro(resolverOnde(w.grid, def.em));
+  const modo = def.corpo ? 'morto' : def.dormindo || tipo.deitado ? 'dormindo' : 'patrulha';
   return {
     id: w.proximoId++, tipo: def.tipo, grupo: def.grupo ?? null, pos, y: alturaPiso(w.grid, pos),
-    yaw: def.yaw ?? 0, vida: tipo.vida, modo: def.dormindo ? 'dormindo' : 'patrulha', timer: 0, espera: 0,
+    yaw: def.yaw ?? 0, vida: def.corpo ? 0 : tipo.vida, modo, timer: 0, espera: 0,
     alvo: null, rota: [], rotaEm: 0, patrulha: (def.patrulha ?? []).map(centro), patrulhaI: 0, lento: 0,
     ultimoVisto: null, semVer: 0, semRota: false, destinoRota: null, rotasCalculadas: 0, alertado: false,
     refugio: null,
+    // quem cria conta em `stats.totalInimigos` na hora; corpo (`corpo: true`) só ao levantar (C3.2)
+    jaMorreu: false, contado: def.corpo !== true,
   };
+}
+
+/** Cria o inimigo, põe em `w.inimigos` e conta em `stats.totalInimigos` (corpo não conta até levantar). */
+export function adicionarInimigo(w: World, def: InimigoDef): Inimigo {
+  const i = criarInimigo(w, def);
+  w.inimigos.push(i);
+  if (i.contado) w.stats.totalInimigos++;
+  return i;
+}
+
+/**
+ * Começa a levantar (`levantando` por `tempo` s: não anda nem ataca; depois persegue). Emite `inimigo_levanta`.
+ * Usado pelo emboscador deitado ao perceber o jogador e pelo chefe 049 ao reanimar um corpo.
+ */
+export function entrarLevantando(i: Inimigo, tempo: number): SimEvent[] {
+  i.modo = 'levantando';
+  i.timer = tempo;
+  i.alvo = null;
+  i.rota = [];
+  return [{ tipo: 'inimigo_levanta', id: i.id }];
 }
 
 /**
@@ -48,12 +66,22 @@ export function criarInimigo(w: World, def: InimigoDef): Inimigo {
  * Vida zero encerra o jogo (`jogador_morto` uma vez só). Com o jogo parado, nada.
  */
 export function ferirJogador(w: World, dano: number, de: Vec2): SimEvent[] {
+  return desgastarJogador(w, dano, de, true);
+}
+
+/**
+ * Dano contínuo (perigo de área, um pouco a cada passo): como `ferirJogador`, mas `dano_jogador`
+ * só sai com `avisar` (pulsos, para o HUD e o som de dor não dispararem a cada passo) ou na morte,
+ * com `quantia` (padrão: o dano deste passo; o perigo passa o acumulado do pulso).
+ */
+export function desgastarJogador(w: World, dano: number, de: Vec2, avisar: boolean, quantia: number = dano): SimEvent[] {
   if (w.estado !== 'jogando' || dano <= 0) return [];
   const j = w.jogador;
   const r = absorver({ vida: j.vida, colete: j.colete }, dano);
   j.vida = r.vida;
   j.colete = r.colete;
-  const eventos: SimEvent[] = [{ tipo: 'dano_jogador', quantia: dano, de: copia(de) }];
+  const eventos: SimEvent[] = [];
+  if (avisar || j.vida <= 0) eventos.push({ tipo: 'dano_jogador', quantia, de: copia(de) });
   if (j.vida <= 0) {
     w.estado = 'morto';
     eventos.push({ tipo: 'jogador_morto' });
@@ -124,11 +152,21 @@ function entrarAtaque(i: Inimigo, t: TipoInimigo): SimEvent[] {
 
 // --- estados ---------------------------------------------------------------------------------
 
-/** Só acorda com dano (via `ferirInimigo`) ou com ruído a até `IA.acordar` do raio. */
+/**
+ * Só acorda com dano (via `ferirInimigo`) ou com ruído a até `IA.acordar` do raio. O deitado também
+ * percebe o jogador pela vista (regra do emboscador) e, percebendo, levanta antes de perseguir.
+ */
 function dormir(w: World, i: Inimigo, ruidos: readonly Ruido[]): SimEvent[] {
   const perto = ruidos.find((r) => escuta(w, i, { pos: r.pos, raio: r.raio * IA.acordar }));
+  if (tipoDe(i.tipo).deitado) return perto || ve(w, i) ? entrarLevantando(i, IA.levantar) : [];
   if (perto) entrarSuspeita(i, perto.pos);
   return [];
+}
+
+/** Parado, levantando: no fim do `timer`, persegue (e alerta, se ainda não alertou). */
+function levantar(w: World, i: Inimigo, dt: number): SimEvent[] {
+  i.timer -= dt;
+  return i.timer <= 0 ? sairDaDor(w, i) : [];
 }
 
 /**
@@ -247,7 +285,11 @@ function irAoJogador(w: World, i: Inimigo, vel: number, dt: number): SimEvent[] 
   return ida.eventos;
 }
 
-/** Projétil do atirador, da altura do disparo até o peito do jogador onde ele está agora. */
+/**
+ * Projétil do atirador, da altura do disparo até o peito do jogador onde ele está agora. Com `arco`
+ * (frasco), parábola até o ponto do jogador no chão: velocidade horizontal fixa e a subida calculada para
+ * cair ali; alvo além de `alcanceAtaque` (o alcance do arco), cai no máximo, na mesma direção.
+ */
 function disparar(w: World, i: Inimigo, t: TipoInimigo, p: NonNullable<TipoInimigo['projetil']>): SimEvent[] {
   const j = w.jogador;
   const dx = j.pos.x - i.pos.x;
@@ -255,7 +297,15 @@ function disparar(w: World, i: Inimigo, t: TipoInimigo, p: NonNullable<TipoInimi
   const d = Math.hypot(dx, dz);
   const u = d > 1e-6 ? { x: dx / d, z: dz / d } : frente(i.yaw);
   const y = i.y + t.altura * IA.disparo;
-  const vy = d > 1e-6 ? (j.y + IA.peitoJogador - y) / (d / p.velocidade) : 0;
+  let vy = d > 1e-6 ? (j.y + IA.peitoJogador - y) / (d / p.velocidade) : 0;
+  if (p.arco) {
+    const alcance = Math.min(d, t.alcanceAtaque);
+    const alvo = { x: i.pos.x + u.x * alcance, z: i.pos.z + u.z * alcance };
+    const yAlvo = alcance < d ? alturaPiso(w.grid, alvo) : j.y;
+    const voo = alcance / p.velocidade;
+    // y + vy·T − g·T²/2 = yAlvo
+    vy = voo > 1e-6 ? (yAlvo - y + (p.arco.gravidade * voo * voo) / 2) / voo : 0;
+  }
   const id = w.proximoId++;
   w.projeteis.push({
     id, de: 'inimigo', tipo: i.tipo, pos: copia(i.pos), y,
@@ -287,6 +337,8 @@ function avancarInimigo(w: World, i: Inimigo, ruidos: readonly Ruido[], dt: numb
   switch (i.modo) {
     case 'dormindo':
       return dormir(w, i, ruidos);
+    case 'levantando':
+      return levantar(w, i, dt);
     case 'patrulha':
     case 'suspeita':
       return vigiar(w, i, ruidos, vel, dt);
@@ -308,8 +360,8 @@ export function avancarInimigos(w: World, ruidos: readonly Ruido[], dt: number):
   const eventos: SimEvent[] = [];
   for (const i of w.inimigos) {
     if (w.estado !== 'jogando') break;
-    const chefe = w.chefe?.inimigoId === i.id ? avancadorDeChefe(i.tipo) : null;
-    eventos.push(...(chefe ? chefe(w, i, dt) : avancarInimigo(w, i, ruidos, dt)));
+    const chefe = w.chefe?.inimigoId === i.id ? iaDeChefe(w.chefe.tipo) : null;
+    eventos.push(...(chefe ? chefe.avancar(w, i, dt) : avancarInimigo(w, i, ruidos, dt)));
   }
   return eventos;
 }

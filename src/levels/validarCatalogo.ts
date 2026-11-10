@@ -1,5 +1,5 @@
 // Validador: nomes que a fase cita do catálogo (props, som de fundo, música, sons de gatilho). Lógica pura.
-import { MUSICAS, SONS_DE_EVENTO, SONS_DE_FUNDO, TIPOS_PROP } from '../sim/catalogo';
+import { MUSICAS, REVESTIMENTOS, SONS_DE_EVENTO, SONS_DE_FUNDO, TIPOS_PROP } from '../sim/catalogo';
 import type { LevelDef, PropDef } from '../sim/fase';
 import { celula, type Grid } from '../sim/grid';
 
@@ -23,7 +23,7 @@ function ladoDaParede(p: PropDef): readonly [number, number] {
   }
 }
 
-/** Erros de props e de nomes de som. Texto vazio em `somDeFundo` ou `musica` = sem som (válido). */
+/** Erros de props, revestimento e nomes de som. Texto vazio em `somDeFundo` ou `musica` = sem som (válido). */
 export function errosDeCatalogo(f: LevelDef, g: Grid): string[] {
   const erros: string[] = [];
   f.props.forEach((p, i) => {
@@ -39,7 +39,8 @@ export function errosDeCatalogo(f: LevelDef, g: Grid): string[] {
     const [dc, dr] = ladoDaParede(p);
     if (celula(g, col + dc, row + dr).tipo !== 'parede') erros.push(`Placa #${i} sem parede atrás`);
   });
-  const { somDeFundo, musica } = f.ambiente;
+  const { somDeFundo, musica, revestimento } = f.ambiente;
+  if (revestimento !== undefined && !REVESTIMENTOS.includes(revestimento)) erros.push(`Revestimento "${revestimento}" desconhecido`);
   if (somDeFundo !== '' && !SONS_DE_FUNDO.includes(somDeFundo)) erros.push(`Som de fundo "${somDeFundo}" desconhecido`);
   if (musica !== '' && !MUSICAS.includes(musica)) erros.push(`Música "${musica}" desconhecida`);
   for (const gat of f.gatilhos) {

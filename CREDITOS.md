@@ -13,9 +13,12 @@ artigo na wiki. Nenhum nome é escrito de memória.
 | Entidade | Autor(es), conforme a wiki | Página | Licença | Conferido em | Uso no jogo |
 |---|---|---|---|---|---|
 | SCP-096 | Dr Dan | https://scp-wiki.wikidot.com/scp-096 | CC BY-SA 3.0 | 09/11/2026, no bloco de licença da página do artigo; reconferido em 10/11/2026 | Inspiração do chefe da fase 1 |
+| SCP-049 | Gabriel Jade; reescrito por djkaktus e Gabriel Jade | https://scp-wiki.wikidot.com/scp-049 | CC BY-SA 3.0 | 10/11/2026, no bloco de licença da página do artigo | Inspiração do chefe da fase 2 |
+
+As imagens e os áudios listados na página do SCP-049 não são usados.
 
 Entidades previstas para as próximas fases, **ainda sem autoria conferida** e por isso fora da
-tabela: SCP-049 (fase 2), SCP-106 (fase 3), SCP-939 (fase 4) e SCP-682 (fase 5). Cada uma entra
+tabela: SCP-106 (fase 3), SCP-939 (fase 4) e SCP-682 (fase 5). Cada uma entra
 aqui e na tela de créditos no checkpoint da sua fase.
 
 ## O que é derivado e o que é original

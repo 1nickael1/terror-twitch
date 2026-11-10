@@ -1,19 +1,14 @@
 // Gatilhos de evento da fase: condições, ações e checkpoint. Lógica pura.
-import { despertarChefe } from './ai/chefe096';
-import { criarInimigo } from './ai/comum';
+import { iaDeChefe } from './ai/chefes';
+import { adicionarInimigo } from './ai/comum';
+import { SIRENE } from './balance';
 import { tipoDe } from './ai/tipos';
 import { comandarPorta } from './doors';
 import type { SimEvent } from './eventos';
-import type { Acao, Area, Condicao } from './fase';
-import { alturaPiso, centro, coordDe, type Vec2 } from './grid';
+import type { Acao, Condicao } from './fase';
+import { alturaPiso, centro, naArea } from './grid';
 import { acionarPerigo } from './perigos';
 import { gravarCheckpoint, type World } from './world';
-
-/** O ponto está numa das células do retângulo [col, row, larg, alt]. */
-export function naArea(p: Vec2, a: Area): boolean {
-  const [col, row] = coordDe(p);
-  return col >= a[0] && col < a[0] + a[2] && row >= a[1] && row < a[1] + a[3];
-}
 
 function vale(w: World, c: Condicao, eventos: readonly SimEvent[]): boolean {
   switch (c.tipo) {
@@ -33,6 +28,11 @@ function vale(w: World, c: Condicao, eventos: readonly SimEvent[]): boolean {
     }
     case 'chefe_morto':
       return w.chefe?.fase === 'morto';
+    case 'tempo': {
+      // folga: o relógio soma `dt` a cada passo (120 × 1/60 pode ficar um fio abaixo de 2)
+      if (!Object.prototype.hasOwnProperty.call(w.gatilhosQuando, c.desde)) return false;
+      return w.relogio - w.gatilhosQuando[c.desde] >= c.apos - 1e-9;
+    }
   }
 }
 
@@ -42,13 +42,11 @@ export function executar(w: World, acao: Acao): SimEvent[] {
     case 'porta':
       return comandarPorta(w, acao.id, acao.estado);
     case 'spawn':
-      for (const def of acao.inimigos) {
-        w.inimigos.push(criarInimigo(w, def));
-        w.stats.totalInimigos++;
-      }
+      for (const def of acao.inimigos) adicionarInimigo(w, def);   // corpo só conta ao levantar
       return [];
     case 'alarme':
       w.alarme = acao.ligado;
+      w.sirene = acao.ligado ? SIRENE.duracao : 0;
       return [{ tipo: 'alarme', ligado: acao.ligado }];
     case 'luz':
       if (acao.ligada) w.luzesDesligadas.delete(acao.grupo);
@@ -74,7 +72,7 @@ export function executar(w: World, acao: Acao): SimEvent[] {
       w.cronometro = acao.segundos;
       return [];
     case 'chefe':
-      return despertarChefe(w);
+      return w.chefe ? iaDeChefe(w.chefe.tipo)?.despertar(w) ?? [] : [];
     case 'perigo':
       return acionarPerigo(w, acao.id);
   }
@@ -84,6 +82,7 @@ export function executar(w: World, acao: Acao): SimEvent[] {
  * Dispara os gatilhos cuja condição vale. `umaVez` (padrão) dispara uma vez só; `umaVez: false`
  * dispara a cada passo em que a condição passa a valer.
  * `eventos` são os eventos já produzidos neste passo (para condições 'pickup' e 'terminal').
+ * Cada disparo grava `w.gatilhosQuando[id] = w.relogio` (base da condição `tempo`).
  * Uma ação `checkpoint` grava só no fim, depois de todos os gatilhos e ações do passo.
  */
 export function avancarGatilhos(w: World, eventos: readonly SimEvent[]): SimEvent[] {
@@ -101,6 +100,7 @@ export function avancarGatilhos(w: World, eventos: readonly SimEvent[]): SimEven
       else w.gatilhosAtivos.delete(g.id);
       if (!agora || antes) continue;
     }
+    w.gatilhosQuando[g.id] = w.relogio;
     ev.push({ tipo: 'gatilho', id: g.id });
     for (const acao of g.faz) ev.push(...executar(w, acao));
   }

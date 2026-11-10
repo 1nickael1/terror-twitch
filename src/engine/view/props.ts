@@ -1,5 +1,6 @@
 // Props decorativos da fase (sem colisão; a fase os põe junto às paredes). Um InstancedMesh por
-// tipo, de primitivas unidas com cor de vértice. Frente do prop = -z local; com `parede`, ele
+// tipo, de primitivas unidas com cor de vértice (a luminária UV ganha um segundo, com os tubos acesos).
+// Fase 2: parede de gavetas de necrotério, cortina hospitalar, autoclave, carrinho e luminária UV. Frente do prop = -z local; com `parede`, ele
 // encosta as costas nessa parede (e, sem `yaw`, olha para dentro da célula). Placas: todas numa malha
 // só, com um atlas de textura (`texturaAtlasPlacas`), cada uma presa na parede indicada (`parede` ou `yaw`).
 import {
@@ -28,8 +29,108 @@ function pernas(dx: number, dz: number, alt: number, esp: number, cor: number): 
   return [-1, 1].flatMap((sx) => [-1, 1].map((sz) => caixa(esp, alt, esp, cor, sx * dx, alt / 2, sz * dz)));
 }
 
+type PropComModelo = Exclude<TipoProp, 'placa'>;
+
+const cilindro = (rt: number, rb: number, h: number, cor: number, x: number, y: number, z: number, seg = 10): Peca =>
+  [new CylinderGeometry(rt, rb, h, seg), cor, x, y, z];
+/** Cilindro deitado ao longo de x (`eixo` 'x') ou de z ('z'). */
+const deitado = (r: number, h: number, eixo: 'x' | 'z', cor: number, x: number, y: number, z: number, seg = 10): Peca => {
+  const g = new CylinderGeometry(r, r, h, seg);
+  return [eixo === 'x' ? g.rotateZ(Math.PI / 2) : g.rotateX(Math.PI / 2), cor, x, y, z];
+};
+
+const ACO_HOSPITAL = 0x7d8489;
+const PUXADOR = 0xb9bec2;
+const ETIQUETA = 0xd8d4c4;
+const PANO = 0x8fa596;
+const PANO_SUJO = 0x5f6d5e;
+
+/** Parede de gavetas de necrotério: 3×3 portas quadradas de aço, puxador e etiqueta em cada uma. */
+function gavetas(): Peca[] {
+  const pecas: Peca[] = [
+    caixa(2.0, 2.1, 0.75, ACO_HOSPITAL, 0, 1.05, 0),
+    caixa(2.04, 0.06, 0.78, ACO, 0, 2.13, 0),          // cornija
+    caixa(2.04, 0.1, 0.78, ACO, 0, 0.05, 0),           // rodapé
+  ];
+  for (const col of [-0.65, 0, 0.65]) {
+    for (const y of [0.45, 1.1, 1.75]) {
+      pecas.push(caixa(0.58, 0.58, 0.03, 0x8c9399, col, y, -0.385));
+      pecas.push(caixa(0.28, 0.035, 0.05, PUXADOR, col, y - 0.12, -0.41));
+      pecas.push(caixa(0.13, 0.06, 0.01, ETIQUETA, col + 0.17, y + 0.19, -0.402));
+    }
+  }
+  return pecas;
+}
+
+/** Cortina hospitalar: trilho no alto e o pano em pregas (painéis em zigue-zague), barra suja embaixo. */
+function cortina(): Peca[] {
+  const pecas: Peca[] = [caixa(1.9, 0.035, 0.05, ACO_CLARO, 0, 2.32, 0)];
+  const n = 8;
+  for (let k = 0; k < n; k++) {
+    const x = -0.84 + k * 0.24;
+    const z = k % 2 === 0 ? -0.025 : 0.025;
+    pecas.push(caixa(0.25, 1.75, 0.015, PANO, x, 1.4, z));
+    pecas.push(caixa(0.25, 0.2, 0.017, PANO_SUJO, x, 0.43, z));
+    pecas.push(caixa(0.02, 0.06, 0.02, ACO_CLARO, x, 2.29, 0));   // argola
+  }
+  return pecas;
+}
+
+/** Autoclave: câmara cilíndrica de aço deitada sobre um gabinete, porta redonda com volante, manômetro. */
+function autoclave(): Peca[] {
+  return [
+    caixa(1.0, 0.8, 0.85, 0x5b6268, 0, 0.4, 0),
+    caixa(0.9, 0.05, 0.02, 0x1c1f22, 0, 0.62, -0.43),                // fresta do gabinete
+    deitado(0.4, 0.85, 'z', ACO_CLARO, 0, 1.22, 0, 14),
+    deitado(0.43, 0.07, 'z', 0x9aa1a6, 0, 1.22, -0.45, 14),           // porta
+    deitado(0.12, 0.05, 'z', 0x3a3d42, 0, 1.22, -0.5, 8),             // cubo do volante
+    caixa(0.5, 0.035, 0.03, 0x3a3d42, 0, 1.22, -0.52),                // raios do volante
+    caixa(0.035, 0.5, 0.03, 0x3a3d42, 0, 1.22, -0.52),
+    cilindro(0.025, 0.025, 0.2, ACO, 0.2, 1.7, 0.1, 6),               // cano do manômetro
+    deitado(0.08, 0.04, 'z', 0xe0dccc, 0.2, 1.84, 0.1, 10),           // manômetro
+    caixa(0.18, 0.3, 0.05, 0x2a2c30, 0.38, 0.55, -0.44),              // painel de controle
+  ];
+}
+
+/** Carrinho de curativos: duas prateleiras, quatro rodízios, alça atrás e frascos em cima. */
+function carrinho(): Peca[] {
+  const pecas: Peca[] = [
+    caixa(0.8, 0.03, 0.5, ACO_CLARO, 0, 0.35, 0),
+    caixa(0.8, 0.03, 0.5, ACO_CLARO, 0, 0.88, 0),
+    caixa(0.82, 0.08, 0.02, ACO_CLARO, 0, 0.93, -0.25),               // borda da bandeja
+    caixa(0.82, 0.08, 0.02, ACO_CLARO, 0, 0.93, 0.25),
+    caixa(0.6, 0.03, 0.03, PUXADOR, 0, 1.0, 0.3),                     // alça
+    caixa(0.03, 0.12, 0.03, PUXADOR, -0.3, 0.94, 0.28),
+    caixa(0.03, 0.12, 0.03, PUXADOR, 0.3, 0.94, 0.28),
+    // frascos, uma caixa de luvas e uma bandeja rim
+    cilindro(0.035, 0.035, 0.16, 0x7a8f52, -0.28, 0.98, -0.1, 8),
+    cilindro(0.03, 0.03, 0.12, 0x9a6a3a, -0.18, 0.96, -0.12, 8),
+    cilindro(0.03, 0.03, 0.14, 0xc8dcd6, -0.22, 0.97, 0.05, 8),
+    caixa(0.22, 0.1, 0.12, 0x3d6a8a, 0.15, 0.95, 0.08),
+    caixa(0.25, 0.03, 0.14, 0x9aa1a6, 0.12, 0.91, -0.12),
+    caixa(0.34, 0.2, 0.3, 0x5a5f56, 0.1, 0.47, 0),                    // caixa na prateleira de baixo
+  ];
+  for (const [x, z] of [[-0.37, -0.22], [0.37, -0.22], [-0.37, 0.22], [0.37, 0.22]] as const) {
+    pecas.push(caixa(0.025, 0.85, 0.025, ACO_CLARO, x, 0.5, z));
+    pecas.push(deitado(0.045, 0.03, 'x', 0x1c1f22, x, 0.045, z, 8));
+  }
+  return pecas;
+}
+
+/** Luminária UV de parede (decorativa): base e grade; os tubos emissivos vêm à parte. */
+function lampadaUV(): Peca[] {
+  const pecas: Peca[] = [
+    caixa(1.3, 0.2, 0.06, ACO, 0, 2.2, 0.1),
+    caixa(1.36, 0.04, 0.18, ACO, 0, 2.31, 0.04),
+    caixa(0.04, 0.2, 0.16, ACO, -0.66, 2.2, 0.03),
+    caixa(0.04, 0.2, 0.16, ACO, 0.66, 2.2, 0.03),
+  ];
+  for (const x of [-0.4, 0, 0.4]) pecas.push(caixa(0.012, 0.2, 0.012, ACO_CLARO, x, 2.2, -0.04));   // grade
+  return pecas;
+}
+
 /** Peças de cada tipo (sem `placa`) e a profundidade (m, ao longo de z local) para encostar na parede. */
-const MODELOS: Record<Exclude<TipoProp, 'placa'>, { pecas: () => Peca[]; prof: number }> = {
+const MODELOS: Record<PropComModelo, { pecas: () => Peca[]; prof: number; emissivas?: () => Peca[] }> = {
   mesa: {
     prof: 0.75,
     pecas: () => [caixa(1.4, 0.05, 0.75, MADEIRA, 0, 0.765, 0), ...pernas(0.64, 0.31, 0.74, 0.05, ACO)],
@@ -76,6 +177,14 @@ const MODELOS: Record<Exclude<TipoProp, 'placa'>, { pecas: () => Peca[]; prof: n
       [new CylinderGeometry(0.215, 0.215, 0.035, 12), 0x2a2f2b, 0, 0.5, 0],
     ],
   },
+  gavetas: { prof: 0.78, pecas: gavetas },
+  cortina: { prof: 0.1, pecas: cortina },
+  autoclave: { prof: 0.9, pecas: autoclave },
+  carrinho: { prof: 0.6, pecas: carrinho },
+  lampada_uv: {
+    prof: 0.3, pecas: lampadaUV,
+    emissivas: () => [deitado(0.025, 1.2, 'x', 0xffffff, 0, 2.16, 0.02, 8), deitado(0.025, 1.2, 'x', 0xffffff, 0, 2.24, 0.02, 8)],
+  },
 };
 
 const LARGURA_PLACA = 0.9;
@@ -84,8 +193,8 @@ const ALTURA_CENTRO_PLACA = 1.75;
 /** caracteres por linha da placa */
 const LINHA_PLACA = 16;
 
-function geometriaDo(tipo: Exclude<TipoProp, 'placa'>): BufferGeometry {
-  return unir(MODELOS[tipo].pecas().map(([g, cor, x, y, z]) => pintar(g.translate(x, y, z), cor)));
+function geometriaDo(pecas: () => Peca[]): BufferGeometry {
+  return unir(pecas().map(([g, cor, x, y, z]) => pintar(g.translate(x, y, z), cor)));
 }
 
 /** Posição (pés) e yaw de um prop comum. */
@@ -111,21 +220,31 @@ export function construirProps(fase: LevelDef, g: Grid, rec: Recursos, grupo: Gr
   const um = new Vector3(1, 1, 1);
   const eixoY = new Vector3(0, 1, 0);
 
-  for (const tipo of Object.keys(MODELOS) as Exclude<TipoProp, 'placa'>[]) {
+  for (const tipo of Object.keys(MODELOS) as PropComModelo[]) {
     const defs = fase.props.filter((d) => d.tipo === tipo);
     if (defs.length === 0) continue;
-    const malha = rec.usar(new InstancedMesh(rec.geo(geometriaDo(tipo)), undefined, defs.length), slot);
-    malha.name = `props:${tipo}`;
+    const modelo = MODELOS[tipo];
+    const malhas = [rec.usar(new InstancedMesh(rec.geo(geometriaDo(modelo.pecas)), undefined, defs.length), slot)];
+    malhas[0].name = `props:${tipo}`;
+    malhas[0].castShadow = true;
+    if (modelo.emissivas) {
+      // partes acesas (tubos da luminária UV): slot emissivo do banco, sem sombra
+      const brilho = rec.slot('prop-uv', { color: 0x2a1a40, emissive: 0xa070ff, emissiveIntensity: 0.9 });
+      const e = rec.usar(new InstancedMesh(rec.geo(geometriaDo(modelo.emissivas)), undefined, defs.length), brilho);
+      e.name = `props:${tipo}:luz`;
+      malhas.push(e);
+    }
     defs.forEach((d, i) => {
-      const c = colocar(g, d, MODELOS[tipo].prof);
+      const c = colocar(g, d, modelo.prof);
       m.compose(new Vector3(c.x, c.y, c.z), q.setFromAxisAngle(eixoY, c.yaw), um);
-      malha.setMatrixAt(i, m);
+      for (const malha of malhas) malha.setMatrixAt(i, m);
     });
-    malha.instanceMatrix.needsUpdate = true;
-    malha.computeBoundingSphere();
-    malha.castShadow = true;
-    malha.receiveShadow = true;
-    grupo.add(malha);
+    for (const malha of malhas) {
+      malha.instanceMatrix.needsUpdate = true;
+      malha.computeBoundingSphere();
+      malha.receiveShadow = true;
+      grupo.add(malha);
+    }
   }
 
   // placas: um atlas de textura e uma malha só para todas (uma draw call), sem sombra própria

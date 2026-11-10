@@ -1,11 +1,11 @@
-// Molde do chefe da fase 1 (`entidade096`): figura original, feita só de primitivas a partir da
+// Moldes dos chefes. Fase 1 (`entidade096`; o da fase 2 fica no fim do arquivo): figura original, feita só de primitivas a partir da
 // descrição (nenhuma imagem de referência). Muito alta e magra, pele quase branca, braços que
 // passam dos joelhos com cotovelo (antebraço próprio, para cobrir o rosto), mãos grandes de dedos
 // longos, cabeça pequena e alongada sem cabelo, órbitas fundas com olhos sem pupila de brilho frio.
 // Medidas no padrão dos moldes (1,8 m); `montar` escala para 2,4 m pelo `TIPOS`.
 // Malhas (8): tronco com pescoço e cabeça, olhos, 2 braços, 2 antebraços, 2 pernas. A cabeça vai
 // no tronco para caber no limite de 8 malhas; o osso `cabeca` fica vazio.
-import { CylinderGeometry, SphereGeometry } from 'three';
+import { ConeGeometry, CylinderGeometry, SphereGeometry } from 'three';
 import { cap, caixa, esf, type Molde, type Peca } from './moldesInimigos';
 
 /** slot dos olhos do chefe (definido pelo `ModelosInimigos`) */
@@ -82,5 +82,76 @@ export const ENTIDADE096: Molde = {
     { osso: 'bracoD', geo: esf(0.03), cor: PELE_MEMBRO, pos: [0, -0.42, 0] },
     ...mao('antebracoE', -1),
     ...mao('antebracoD', 1),
+  ],
+};
+
+// --- chefe da fase 2 (`entidade049`) ---------------------------------------------------------
+// Figura original, só de primitivas a partir da descrição textual (nenhuma imagem de referência):
+// alta e ereta, manto escuro até os tornozelos com capa curta nos ombros e cordão na cintura, capuz
+// fundo, máscara de marfim com um bico estilizado inclinado para baixo e duas lentes redondas de
+// brasa fraca; luvas escuras e uma maleta de couro na mão esquerda. A mão direita leva o brilho do
+// toque (cresce no preparo: o aviso visual). Medidas no padrão de 1,8 m; `montar` escala para 2,0 m.
+// Malhas (8): 2 pernas, tronco (manto), cabeça, lentes, 2 braços (a maleta vai no esquerdo), brilho.
+
+/** slot das lentes da máscara (definido pelo `ModelosInimigos`) */
+export const SLOT_LENTE_049 = 'chefe049-lente';
+
+// escuro, mas não preto: precisa ler como silhueta sob o foco da arena (playtest do CP3)
+const MANTO = 0x3a3440;
+const CAPA = 0x0f0e12;
+const CORDAO = 0x4a3c26;
+const MARFIM = 0xe2dac6;   // clara: lê-se na arena escura (lote final do CP3)
+const BICO = 0xcabfa3;
+const LUVA = 0x231e1b;
+const MALETA = 0x3a2418;
+const LATAO = 0x8a7440;
+const CALCA_ESCURA = 0x1a1a1c;
+
+export const ENTIDADE049: Molde = {
+  base: {
+    quadril: 0.95, troncoX: -0.05, cabecaX: -0.08, cabecaZ: 0, bracoX: 0.12, bracoZ: 0.06,
+    bracoDFixo: null, balancoBraco: 0.35, mole: 0,
+  },
+  juntas: {
+    tronco: [0, 0, 0], pernaE: [-0.09, 0, 0], pernaD: [0.09, 0, 0],
+    bracoE: [-0.24, 0.56, 0], bracoD: [0.24, 0.56, 0], cabeca: [0, 0.7, -0.01],
+  },
+  pecas: [
+    // pernas quase escondidas pelo manto: calça e sapatos escuros
+    { osso: 'pernaE', geo: cap(0.06, 0.72), cor: CALCA_ESCURA, pos: [0, -0.44, 0] },
+    { osso: 'pernaD', geo: cap(0.06, 0.72), cor: CALCA_ESCURA, pos: [0, -0.44, 0] },
+    { osso: 'pernaE', geo: caixa(0.1, 0.06, 0.25), cor: CAPA, pos: [0, -0.92, -0.05] },
+    { osso: 'pernaD', geo: caixa(0.1, 0.06, 0.25), cor: CAPA, pos: [0, -0.92, -0.05] },
+    // manto: dos ombros aos tornozelos, abrindo em sino; cordão na cintura
+    { osso: 'tronco', geo: () => new CylinderGeometry(0.2, 0.37, 1.48, 14), cor: MANTO, pos: [0, -0.12, 0], esc: [1, 1, 0.8] },
+    { osso: 'tronco', geo: () => new CylinderGeometry(0.27, 0.27, 0.035, 14), cor: CORDAO, pos: [0, 0.06, 0], esc: [1, 1, 0.8] },
+    { osso: 'tronco', geo: cap(0.012, 0.32), cor: CORDAO, pos: [-0.08, -0.13, -0.215], rot: [0.05, 0, 0.08] },
+    // capa curta sobre os ombros e gola alta
+    { osso: 'tronco', geo: () => new CylinderGeometry(0.17, 0.34, 0.36, 14), cor: CAPA, pos: [0, 0.47, 0], esc: [1, 1, 0.82] },
+    { osso: 'tronco', geo: () => new CylinderGeometry(0.1, 0.13, 0.14, 10), cor: CAPA, pos: [0, 0.68, 0], esc: [1, 1, 0.9] },
+    // capuz fundo e a máscara de marfim com o bico
+    { osso: 'cabeca', geo: () => new SphereGeometry(0.16, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), cor: CAPA, pos: [0, 0.12, 0.025], esc: [1, 1.12, 1.12] },
+    { osso: 'cabeca', geo: esf(0.11), cor: MARFIM, pos: [0, 0.1, -0.035], esc: [0.86, 1.05, 0.72] },
+    { osso: 'cabeca', geo: () => new ConeGeometry(0.048, 0.27, 10), cor: BICO, pos: [0, 0.05, -0.19], rot: [-Math.PI / 2 - 0.32, 0, 0] },
+    { osso: 'cabeca', geo: caixa(0.12, 0.012, 0.02), cor: CAPA, pos: [0, 0.165, -0.1] },          // costura da testa
+    { osso: 'cabeca', geo: esf(0.033), cor: CAPA, pos: [-0.045, 0.135, -0.095] },               // aros das lentes
+    { osso: 'cabeca', geo: esf(0.033), cor: CAPA, pos: [0.045, 0.135, -0.095] },
+    { osso: 'cabeca', geo: esf(0.024), slot: SLOT_LENTE_049, pos: [-0.045, 0.135, -0.112], emissivo: true },
+    { osso: 'cabeca', geo: esf(0.024), slot: SLOT_LENTE_049, pos: [0.045, 0.135, -0.112], emissivo: true },
+    // mangas largas e luvas escuras
+    { osso: 'bracoE', geo: () => new CylinderGeometry(0.05, 0.09, 0.62, 10), cor: MANTO, pos: [0, -0.32, 0] },
+    { osso: 'bracoD', geo: () => new CylinderGeometry(0.05, 0.09, 0.62, 10), cor: MANTO, pos: [0, -0.32, 0] },
+    { osso: 'bracoE', geo: esf(0.08), cor: CAPA, pos: [0, -0.02, 0] },
+    { osso: 'bracoD', geo: esf(0.08), cor: CAPA, pos: [0, -0.02, 0] },
+    { osso: 'bracoE', geo: cap(0.042, 0.12), cor: LUVA, pos: [0, -0.7, 0] },
+    { osso: 'bracoD', geo: cap(0.042, 0.12), cor: LUVA, pos: [0, -0.7, 0] },
+    // dedos da mão direita (a que toca), um pouco abertos
+    ...[-0.022, 0, 0.022].map((dx): Peca => ({ osso: 'bracoD', geo: cap(0.011, 0.08), cor: LUVA, pos: [dx, -0.8, -0.01] })),
+    // maleta de couro na mão esquerda: corpo, fecho e alça
+    { osso: 'bracoE', geo: caixa(0.12, 0.2, 0.3), cor: MALETA, pos: [0, -0.9, 0] },
+    { osso: 'bracoE', geo: caixa(0.13, 0.03, 0.06), cor: LATAO, pos: [0, -0.8, -0.04] },
+    { osso: 'bracoE', geo: caixa(0.02, 0.05, 0.12), cor: MALETA, pos: [0, -0.77, 0] },
+    // brilho do toque na palma direita
+    { osso: 'bracoD', geo: esf(0.035), slot: SLOT_LENTE_049, pos: [0, -0.79, -0.03], emissivo: true, brilho: true, corBrilho: 0xb8d0ff },
   ],
 };

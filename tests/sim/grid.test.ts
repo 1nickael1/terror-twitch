@@ -1,6 +1,8 @@
 // tests/sim/grid.test.ts
 import { describe, expect, it } from 'vitest';
-import { CELL, DEGRAU, SALTO, alturaPiso, celula, centro, coordDe, criarGrid, passavel } from '../../src/sim/grid';
+import {
+  CELL, DEGRAU, SALTO, alturaPiso, celula, celulaNaArea, centro, coordDe, criarGrid, naArea, passavel,
+} from '../../src/sim/grid';
 
 const PLANTA = `
   ########
@@ -126,5 +128,17 @@ describe('correção 1: rampa z', () => {
     expect(alturaPiso(g, { x: 3, z: 3 * CELL - 0.001 })).toBeCloseTo(1, 2);
     expect(passavel(g, [1, 1], [1, 2], DEGRAU)).toBe(true);
     expect(passavel(g, [1, 2], [1, 3], DEGRAU)).toBe(true);
+  });
+});
+
+describe('naArea e celulaNaArea (C3.1, correção 1: uma só regra de área)', () => {
+  it('a célula está no retângulo [col, row, larg, alt] (meio aberto)', () => {
+    expect(celulaNaArea(2, 1, [2, 1, 2, 1])).toBe(true);
+    expect(celulaNaArea(3, 1, [2, 1, 2, 1])).toBe(true);
+    expect(celulaNaArea(4, 1, [2, 1, 2, 1])).toBe(false);
+    expect(celulaNaArea(2, 2, [2, 1, 2, 1])).toBe(false);
+    expect(naArea(centro([3, 1]), [2, 1, 2, 1])).toBe(true);
+    expect(naArea({ x: 3.99, z: 2.5 }, [1, 1, 1, 1])).toBe(true);   // célula [1, 1]
+    expect(naArea({ x: 4.01, z: 2.5 }, [1, 1, 1, 1])).toBe(false);
   });
 });

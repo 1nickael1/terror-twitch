@@ -3,51 +3,37 @@
 import { CHEFE_096, IA, JOGADOR, NUVEM, PORTA } from '../balance';
 import { comandarPorta, solidoDe } from '../doors';
 import type { SimEvent } from '../eventos';
-import type { Area } from '../fase';
 import {
-  alturaPiso, caminho, CELL, coordDe, DEGRAU, moverComColisao, SALTO, visivel, type Solido, type Vec2,
+  alturaPiso, caminho, CELL, centro, coordDe, DEGRAU, moverComColisao, naArea, SALTO, visivel, type Solido, type Vec2,
 } from '../grid';
+import { resolverOnde } from '../onde';
 import { celulaFechada } from '../perigos';
 import { frente } from '../player';
-import type { EstadoChefe, FaseChefe, Inimigo, ModoIA, World } from '../world';
+import type { EstadoChefe096, FaseChefe096, Inimigo, ModoIA, World } from '../world';
+import { confirmarMorteChefe, contarPassos, inimigoDoChefe } from './chefeComum';
+import type { IaDeChefe } from './chefes';
 import { ferirJogador } from './comum';
-import { andar, celulaMaisProxima, encarar, linhaAndavel } from './movimento';
-import { distanciaJogador, linhaDeVisao } from './percepcao';
+import { andar, celulaMaisProxima, encarar, linhaAndavel, normalizar, yawPara } from './movimento';
+import { aoAlcance, distanciaJogador, linhaDeVisao } from './percepcao';
 import { tipoDe, type TipoInimigo } from './tipos';
 
 /** O `Inimigo.modo` do chefe é derivado da fase (para as views e a tensão). */
-const MODO: Record<FaseChefe, ModoIA> = {
+const MODO: Record<FaseChefe096, ModoIA> = {
   inerte: 'patrulha', despertando: 'suspeita', pausa: 'suspeita',
   perseguicao: 'perseguicao', investida: 'perseguicao', arrombando: 'ataque', morto: 'morto',
 };
 
-export function modoDoChefe(f: FaseChefe): ModoIA {
+export function modoDoChefe(f: FaseChefe096): ModoIA {
   return MODO[f];
 }
 
 /** Folga além do raio do corpo para contar como encostado na porta (maior que o passo de um quadro a 12 m/s, 0,2 m). */
 const FOLGA_PORTA = 0.3;
 
-/** Ângulo em (-π, π]. */
-function normalizar(a: number): number {
-  const v = a % (2 * Math.PI);
-  if (v > Math.PI) return v - 2 * Math.PI;
-  if (v <= -Math.PI) return v + 2 * Math.PI;
-  return v;
-}
 
-/** Yaw de quem olha na direção (dx, dz), com frente = (-sin yaw, -cos yaw). */
-function yawPara(dx: number, dz: number): number {
-  return Math.atan2(-dx, -dz);
-}
-
-function naArea(p: Vec2, a: Area): boolean {
-  const [col, row] = coordDe(p);
-  return col >= a[0] && col < a[0] + a[2] && row >= a[1] && row < a[1] + a[3];
-}
-
-function inimigoDoChefe(w: World, c: EstadoChefe): Inimigo | undefined {
-  return w.inimigos.find((i) => i.id === c.inimigoId);
+/** O estado do chefe, se for o 096. */
+function estado096(w: World): EstadoChefe096 | null {
+  return w.chefe?.tipo === 'entidade096' ? w.chefe : null;
 }
 
 /**
@@ -76,40 +62,20 @@ function podeInvestir(w: World, i: Inimigo): boolean {
   return linhaDeVisao(w, i) && linhaAndavel(w, i, w.jogador.pos);
 }
 
-/** O jogador está ao alcance `alcance` em planta e na mesma faixa de altura. */
-function aoAlcance(w: World, i: Inimigo, t: TipoInimigo, alcance: number): boolean {
-  return distanciaJogador(w, i) <= alcance && Math.abs(w.jogador.y - i.y) <= t.altura / 2;
-}
-
 // --- transições ------------------------------------------------------------------------------
-
-/**
- * Se o `Inimigo` do chefe está morto e a fase ainda não, passa a `morto` com `chefe_morto` (uma vez).
- * Chamada no passo do chefe e logo depois de dano fora dele (comporta), para valer no mesmo passo.
- */
-export function confirmarMorteChefe(w: World): SimEvent[] {
-  const c = w.chefe;
-  if (!c || c.fase === 'morto') return [];
-  const i = inimigoDoChefe(w, c);
-  if (!i || i.modo !== 'morto') return [];
-  c.fase = 'morto';
-  c.portaAlvo = null;
-  c.investida = null;
-  return [{ tipo: 'chefe_morto' }];
-}
 
 /** Desperta o chefe inerte (evento `chefe_desperta`). Sem chefe, ou já acordado, nada. */
 export function despertarChefe(w: World): SimEvent[] {
-  const c = w.chefe;
+  const c = estado096(w);
   if (!c || c.fase !== 'inerte') return [];
   c.fase = 'despertando';
   c.timer = CHEFE_096.despertar;
-  const i = inimigoDoChefe(w, c);
+  const i = inimigoDoChefe(w);
   if (i && i.modo !== 'morto') i.modo = MODO.despertando;
   return [{ tipo: 'chefe_desperta' }];
 }
 
-function entrarPerseguicao(c: EstadoChefe, i: Inimigo): void {
+function entrarPerseguicao(c: EstadoChefe096, i: Inimigo): void {
   c.fase = 'perseguicao';
   c.timer = 0;   // na perseguição, o timer é o preparo do golpe
   c.portaAlvo = null;
@@ -117,14 +83,14 @@ function entrarPerseguicao(c: EstadoChefe, i: Inimigo): void {
   i.rotaEm = 0;
 }
 
-function entrarPausa(c: EstadoChefe): void {
+function entrarPausa(c: EstadoChefe096): void {
   c.fase = 'pausa';
   c.timer = CHEFE_096.pausa;
   c.investida = null;
 }
 
 /** Investida na direção do jogador de agora: `preparoInvestida` s parado e depois a corrida. */
-function entrarInvestida(w: World, c: EstadoChefe, i: Inimigo): SimEvent[] {
+function entrarInvestida(w: World, c: EstadoChefe096, i: Inimigo): SimEvent[] {
   const dx = w.jogador.pos.x - i.pos.x;
   const dz = w.jogador.pos.z - i.pos.z;
   const d = Math.hypot(dx, dz);
@@ -140,7 +106,7 @@ function entrarInvestida(w: World, c: EstadoChefe, i: Inimigo): SimEvent[] {
 // --- fases -----------------------------------------------------------------------------------
 
 /** Parado, de costas. Desperta com a mira acumulada, com o jogador perto ou com qualquer dano. */
-function inerte(w: World, c: EstadoChefe, i: Inimigo, t: TipoInimigo, dt: number): SimEvent[] {
+function inerte(w: World, c: EstadoChefe096, i: Inimigo, t: TipoInimigo, dt: number): SimEvent[] {
   if (miradoPeloJogador(w, i)) c.olhar += dt;
   const ferido = i.vida < t.vida;   // a vida só cai enquanto inerte: dano por tiro, nuvem ou comporta
   if (c.olhar >= CHEFE_096.olharTempo || distanciaJogador(w, i) <= CHEFE_096.distanciaDespertar || ferido) {
@@ -150,7 +116,7 @@ function inerte(w: World, c: EstadoChefe, i: Inimigo, t: TipoInimigo, dt: number
 }
 
 /** Parado, virando para o jogador (meia-volta no tempo todo); depois persegue. */
-function despertando(w: World, c: EstadoChefe, i: Inimigo, dt: number): SimEvent[] {
+function despertando(w: World, c: EstadoChefe096, i: Inimigo, dt: number): SimEvent[] {
   const alvo = yawPara(w.jogador.pos.x - i.pos.x, w.jogador.pos.z - i.pos.z);
   const giro = (Math.PI / CHEFE_096.despertar) * dt;
   const falta = normalizar(alvo - i.yaw);
@@ -165,7 +131,7 @@ function despertando(w: World, c: EstadoChefe, i: Inimigo, dt: number): SimEvent
  * golpeia como os inimigos comuns: `preparo` virado para ele (em `c.timer`), golpe se ainda está a
  * `alcanceAtaque * 1.2`, e `espera = cadencia`. Senão, segue a rota.
  */
-function perseguir(w: World, c: EstadoChefe, i: Inimigo, t: TipoInimigo, vel: number, dt: number): SimEvent[] {
+function perseguir(w: World, c: EstadoChefe096, i: Inimigo, t: TipoInimigo, vel: number, dt: number): SimEvent[] {
   const j = w.jogador;
   if (c.timer > 0) {
     encarar(i, j.pos);
@@ -196,7 +162,7 @@ function solidoRotaChefe(w: World): Solido {
  * rota até o jogador, vai ao `refugio` (célula alcançável mais próxima dele) e espera virado para
  * ele; a cada recálculo tenta de novo a rota até o jogador.
  */
-function seguirRota(w: World, c: EstadoChefe, i: Inimigo, t: TipoInimigo, vel: number, dt: number): SimEvent[] {
+function seguirRota(w: World, c: EstadoChefe096, i: Inimigo, t: TipoInimigo, vel: number, dt: number): SimEvent[] {
   const j = w.jogador;
   if (linhaAndavel(w, i, j.pos)) {
     i.rota = [];
@@ -247,7 +213,7 @@ function seguirRota(w: World, c: EstadoChefe, i: Inimigo, t: TipoInimigo, vel: n
  * `arrombar` segundos na porta; depois ela abre, mesmo trancada, e ele volta a perseguir. Se ela
  * já deixa passar (aberta por outro), volta a perseguir na hora.
  */
-function arrombando(w: World, c: EstadoChefe, i: Inimigo, dt: number): SimEvent[] {
+function arrombando(w: World, c: EstadoChefe096, i: Inimigo, dt: number): SimEvent[] {
   const porta = w.portas.find((p) => p.id === c.portaAlvo);
   if (porta && porta.abertura >= PORTA.livreEm) {
     entrarPerseguicao(c, i);
@@ -278,7 +244,7 @@ function bateu(antes: Vec2, depois: Vec2, dir: Vec2, passo: number): boolean {
 /**
  * Depois do preparo (`c.timer` acima de `investidaMax`), corre em linha reta a `investidaVel` por até `investidaMax` ou até bater (`bateu`). Passando a `investidaGolpe` do jogador, golpeia uma vez. Depois, pausa.
  */
-function investir(w: World, c: EstadoChefe, i: Inimigo, t: TipoInimigo, lentidao: number, dt: number): SimEvent[] {
+function investir(w: World, c: EstadoChefe096, i: Inimigo, t: TipoInimigo, lentidao: number, dt: number): SimEvent[] {
   const dir = c.investida;
   if (!dir) {
     entrarPausa(c);
@@ -303,7 +269,7 @@ function investir(w: World, c: EstadoChefe, i: Inimigo, t: TipoInimigo, lentidao
 }
 
 /** Parado, encolhido. Depois investe de novo se pode (`podeInvestir`); senão, persegue. */
-function pausar(w: World, c: EstadoChefe, i: Inimigo, dt: number): SimEvent[] {
+function pausar(w: World, c: EstadoChefe096, i: Inimigo, dt: number): SimEvent[] {
   c.timer -= dt;
   if (c.timer > 0) return [];
   if (podeInvestir(w, i)) return entrarInvestida(w, c, i);
@@ -316,7 +282,7 @@ function pausar(w: World, c: EstadoChefe, i: Inimigo, dt: number): SimEvent[] {
  * `chefe_morto` uma vez. Ao fim, `i.modo` segue a fase (`modoDoChefe`).
  */
 export function avancarChefe096(w: World, i: Inimigo, dt: number): SimEvent[] {
-  const c = w.chefe;
+  const c = estado096(w);
   if (!c) return [];
   if (i.modo === 'morto') return confirmarMorteChefe(w);
   const t = tipoDe(i.tipo);
@@ -353,13 +319,38 @@ export function avancarChefe096(w: World, i: Inimigo, dt: number): SimEvent[] {
       break;
   }
   i.modo = MODO[c.fase];
-  return faseAntes === 'perseguicao' || faseAntes === 'investida' ? [...eventos, ...contarPassos(c, antes, i.pos)] : eventos;
+  return faseAntes === 'perseguicao' || faseAntes === 'investida' ? [...eventos, ...contarPassos(c, antes, i.pos, CHEFE_096.passoMetros)] : eventos;
 }
 
-/** Soma o que andou; a cada `passoMetros`, um `chefe_passo` na posição dele (o áudio toca o passo pesado). */
-function contarPassos(c: EstadoChefe, antes: Vec2, agora: Vec2): SimEvent[] {
-  c.passo += Math.hypot(agora.x - antes.x, agora.z - antes.z);
-  if (c.passo < CHEFE_096.passoMetros) return [];
-  c.passo %= CHEFE_096.passoMetros;
-  return [{ tipo: 'chefe_passo', pos: { x: agora.x, z: agora.z } }];
+/** Restauro com o 096 acordado (nem inerte nem morto): volta na `retomada`, `despertando` com `CHEFE_096.retomada`. */
+export function retomarChefe096(w: World): void {
+  const c = estado096(w);
+  const def = w.fase.chefe;
+  if (!c || !def || c.fase === 'inerte' || c.fase === 'morto') return;
+  const i = inimigoDoChefe(w);
+  // morto no mesmo passo em que o checkpoint gravou (comporta num gatilho): a fase vira 'morto' no próximo passo
+  if (!i || i.modo === 'morto') return;
+  i.pos = centro(resolverOnde(w.grid, def.retomada));
+  i.y = alturaPiso(w.grid, i.pos);
+  i.rota = [];
+  i.rotaEm = 0;
+  i.espera = 0;
+  c.fase = 'despertando';
+  i.modo = modoDoChefe(c.fase);
+  c.timer = CHEFE_096.retomada;
+  c.portaAlvo = null;
+  c.investida = null;
 }
+
+/** Estado inicial do 096: inerte. */
+function criarEstado096(inimigoId: number): EstadoChefe096 {
+  return { tipo: 'entidade096', inimigoId, fase: 'inerte', timer: 0, olhar: 0, naArena: false, portaAlvo: null, investida: null, passo: 0 };
+}
+
+/** A IA do 096 no registro de `ai/chefes.ts`. */
+export const IA_096: IaDeChefe = {
+  avancar: avancarChefe096,
+  criarEstado: criarEstado096,
+  retomar: retomarChefe096,
+  despertar: despertarChefe,
+};

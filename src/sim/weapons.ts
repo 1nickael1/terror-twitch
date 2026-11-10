@@ -1,6 +1,6 @@
 // Arsenal: troca de arma, disparo hitscan, projétil do lançador e nuvem. Lógica pura.
-import { ferirJogador } from './ai/comum';
-import { tipoDe } from './ai/tipos';
+import { entrarLevantando, ferirJogador } from './ai/comum';
+import { alturaCorpo, tipoDe, type TipoInimigo } from './ai/tipos';
 import {
   ARMAS, CABECA, ESPALHAMENTO_POR_TIRO, ESPERA_TROCA, IA, JOGADOR, LANCADOR, LENTO_NUVEM, NUVEM, ORDEM_ARMAS,
   PISTOLA_RESERVA, TIRO_PENDENTE, type ArmaDef,
@@ -8,7 +8,7 @@ import {
 import { solidoDe } from './doors';
 import type { SimEvent } from './eventos';
 import type { ArmaId } from './fase';
-import { alcanceTiro, type Vec2 } from './grid';
+import { alcanceTiro, alturaPiso, type Vec2 } from './grid';
 import { frente } from './player';
 import { proximo } from './rng';
 import type { InputFrame, Inimigo, Projetil, World } from './world';
@@ -133,7 +133,7 @@ function cruzarInimigo(w: World, o: Vec2, u: Vec2, y0: number, inclinacao: numbe
     let fim = Math.min(max, -b + raiz);
     // e dentro da faixa de altura do cilindro (a altura do raio é linear na distância)
     const base = i.y - y0;
-    const topo = i.y + tipo.altura - y0;
+    const topo = i.y + alturaCorpo(i) - y0;   // deitado, o corpo é baixo
     if (inclinacao === 0) {
       if (base > 0 || topo < 0) continue;
     } else {
@@ -159,8 +159,7 @@ function hitscan(w: World, def: ArmaDef): SimEvent[] {
     const max = alcanceTiro(w.grid, j.pos, u, def.alcance, undefined, y0, inclinacao);
     const alvo = cruzarInimigo(w, j.pos, u, y0, inclinacao, max);
     if (alvo) {
-      const tipo = tipoDe(alvo.inimigo.tipo);
-      const cabeca = alvo.h >= alvo.inimigo.y + tipo.altura * (1 - CABECA.fracao);
+      const cabeca = alvo.h >= alvo.inimigo.y + alturaCorpo(alvo.inimigo) * (1 - CABECA.fracao);
       const pos = { x: j.pos.x + u.x * alvo.d, z: j.pos.z + u.z * alvo.d };
       eventos.push({ tipo: 'impacto', pos, y: alvo.h, em: 'inimigo' });
       eventos.push(...ferirInimigo(w, alvo.inimigo, def.dano * (cabeca ? CABECA.multiplicador : 1)));
@@ -209,16 +208,53 @@ function voarProjetilInimigo(w: World, p: Projetil, dt: number): SimEvent[] | nu
   return max < passo || p.vida <= 0 ? [] : null;
 }
 
+type Arco = NonNullable<NonNullable<TipoInimigo['projetil']>['arco']>;
+
+/**
+ * Um passo do frasco (projétil com `arco`): parábola com a gravidade do arco, sem colidir com corpos.
+ * Ao tocar piso, parede ou teto (ou porta fechada), quebra: `frasco_quebra` e, com o jogador a até
+ * `respingo` (do ponto ao corpo dele), o dano uma vez por `ferirJogador`. Não fere inimigos. Ao fim da
+ * vida, some sem quebrar. Devolve `null` se segue voando.
+ */
+function voarFrasco(w: World, p: Projetil, arco: Arco, dt: number): SimEvent[] | null {
+  const vh = Math.hypot(p.vel.x, p.vel.z);
+  if (vh <= 0) return quebrarFrasco(w, p, arco);
+  const passo = vh * dt;
+  const u = { x: p.vel.x / vh, z: p.vel.z / vh };
+  // inclinação pela vy média do passo: o trecho reto segue a corda da parábola
+  const inclinacao = (p.vy - (arco.gravidade * dt) / 2) / vh;
+  const max = alcanceTiro(w.grid, p.pos, u, passo, solidoDe(w), p.y, inclinacao);
+  p.pos = { x: p.pos.x + u.x * max, z: p.pos.z + u.z * max };
+  p.y += inclinacao * max;
+  p.vy -= arco.gravidade * dt;
+  p.vida -= dt;
+  if (max < passo) return quebrarFrasco(w, p, arco);
+  return p.vida <= 0 ? [] : null;
+}
+
+/** Quebra o frasco onde ele está: `frasco_quebra` e o respingo (exportada para os testes de borda). */
+export function quebrarFrasco(w: World, p: Projetil, arco: Arco): SimEvent[] {
+  const j = w.jogador;
+  const y = Math.max(p.y, alturaPiso(w.grid, p.pos));   // a amostra pode passar um fio do piso
+  const eventos: SimEvent[] = [{ tipo: 'frasco_quebra', pos: copia(p.pos), y }];
+  const emPlanta = Math.hypot(j.pos.x - p.pos.x, j.pos.z - p.pos.z);
+  const topo = j.y + IA.alturaJogador;
+  const vertical = y < j.y ? j.y - y : y > topo ? y - topo : 0;
+  if (Math.hypot(emPlanta, vertical) <= arco.respingo) eventos.push(...ferirJogador(w, p.dano, p.pos));
+  return eventos;
+}
+
 /**
  * Projéteis do jogador: caem com a gravidade e explodem ao tocar parede, piso, teto ou inimigo
- * vivo, ou ao fim da vida. Projéteis de inimigo: ver `voarProjetilInimigo`.
+ * vivo, ou ao fim da vida. Projéteis de inimigo: ver `voarProjetilInimigo` (retos) e `voarFrasco` (arco).
  */
 export function avancarProjeteis(w: World, dt: number): SimEvent[] {
   const eventos: SimEvent[] = [];
   const restam: typeof w.projeteis = [];
   for (const p of w.projeteis) {
     if (p.de === 'inimigo') {
-      const fim = voarProjetilInimigo(w, p, dt);
+      const arco = tipoDe(p.tipo).projetil?.arco;
+      const fim = arco ? voarFrasco(w, p, arco, dt) : voarProjetilInimigo(w, p, dt);
       if (fim) eventos.push(...fim);
       else restam.push(p);
       continue;
@@ -261,12 +297,7 @@ export function avancarNuvens(w: World, dt: number): SimEvent[] {
     for (const i of w.inimigos) {
       if (!noRaio(i, n.pos, n.raio)) continue;
       i.lento = LENTO_NUVEM;
-      if (i.modo === 'dormindo') {
-        eventos.push(...ferirInimigo(w, i, NUVEM.danoPorSegundo * dt));
-      } else {
-        i.vida -= NUVEM.danoPorSegundo * dt;
-        if (i.vida <= 0) eventos.push(...matar(w, i));
-      }
+      eventos.push(...desgastarInimigo(w, i, NUVEM.danoPorSegundo * dt));
     }
     n.resta -= dt;
   }
@@ -274,19 +305,40 @@ export function avancarNuvens(w: World, dt: number): SimEvent[] {
   return eventos;
 }
 
+/** Morte: `stats.mortos` só na primeira de cada inimigo (`jaMorreu`; um reanimado morre de novo sem contar). */
 function matar(w: World, i: Inimigo): SimEvent[] {
   i.vida = 0;
   i.modo = 'morto';
-  w.stats.mortos++;
+  if (!i.jaMorreu) {
+    i.jaMorreu = true;
+    w.stats.mortos++;
+  }
   return [{ tipo: 'inimigo_morto', id: i.id }];
 }
 
-/** aplica dano a um inimigo, com 'inimigo_dor' ou 'inimigo_morto' */
+/**
+ * Dano contínuo (nuvem, perigo de área): sem entrar em dor a cada passo. Quem dorme acorda como
+ * num golpe (`ferirInimigo`); morto, nada.
+ */
+export function desgastarInimigo(w: World, i: Inimigo, dano: number): SimEvent[] {
+  if (i.modo === 'morto') return [];
+  if (i.modo === 'dormindo') return ferirInimigo(w, i, dano);
+  i.vida -= dano;
+  return i.vida <= 0 ? matar(w, i) : [];
+}
+
+/**
+ * Aplica dano a um inimigo, com 'inimigo_dor' ou 'inimigo_morto'. Quem está `levantando` não é
+ * interrompido (só perde vida); o deitado dormindo levanta em vez de entrar em dor (C3.2).
+ */
 export function ferirInimigo(w: World, i: Inimigo, dano: number): SimEvent[] {
   if (i.modo === 'morto') return [];
   i.vida -= dano;
   if (i.vida <= 0) return matar(w, i);
+  const dor: SimEvent = { tipo: 'inimigo_dor', id: i.id };
+  if (i.modo === 'levantando') return [dor];
+  if (i.modo === 'dormindo' && tipoDe(i.tipo).deitado) return [dor, ...entrarLevantando(i, IA.levantar)];
   i.modo = 'dor';
   i.timer = tipoDe(i.tipo).dor;
-  return [{ tipo: 'inimigo_dor', id: i.id }];
+  return [dor];
 }

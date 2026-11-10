@@ -35,6 +35,12 @@ export type SimEvent =
   | { tipo: 'chefe_investida' }
   | { tipo: 'chefe_passo'; pos: Vec2 }            // a cada CHEFE_096.passoMetros andados (perseguição e investida)
   | { tipo: 'chefe_morto' }
-  | { tipo: 'perigo'; id: string; estado: 'fecha' | 'abre' | 'recarregando' }
+  // comporta: fecha/abre; perigo de área: aviso/liga/desliga; os dois: recarregando
+  | { tipo: 'perigo'; id: string; estado: 'fecha' | 'abre' | 'recarregando' | 'aviso' | 'liga' | 'desliga' }
+  | { tipo: 'inimigo_levanta'; id: number }        // corpo começou a levantar (reanimação ou emboscador deitado; C3.2)
+  | { tipo: 'chefe_toque' }                        // início do preparo do toque do 049 (C3.2)
+  | { tipo: 'chefe_reanima'; corpo: number }       // início da reanimação (C3.2)
+  | { tipo: 'chefe_apressa' }                      // C3.2
+  | { tipo: 'frasco_quebra'; pos: Vec2; y: number } // projétil em arco tocou piso ou parede (C3.2)
   | { tipo: 'jogador_morto' }
   | { tipo: 'fase_concluida' };

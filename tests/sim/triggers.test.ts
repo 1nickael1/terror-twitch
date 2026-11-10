@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { avancarPortas, comandarPorta } from '../../src/sim/doors';
 import { centro } from '../../src/sim/grid';
-import { avancarGatilhos, naArea } from '../../src/sim/triggers';
+import { naArea } from '../../src/sim/grid';
+import { avancarGatilhos } from '../../src/sim/triggers';
 import { criarWorld, restaurarCheckpoint } from '../../src/sim/world';
 import type { GatilhoDef } from '../../src/sim/fase';
 import { faseMinima, porInimigo } from './ajuda';

@@ -1,4 +1,4 @@
-// Uma fase carregada na cena: malha estática, portas, comportas, props e placas, pickups, objetos, luzes, decalques e as
+// Uma fase carregada na cena: malha estática, portas, comportas e perigos de área, props e placas, pickups, objetos, luzes, decalques e as
 // views dinâmicas (inimigos, projéteis e nuvens, partículas, armas em primeira pessoa). Só lê o World (passado a cada quadro; nada dele é guardado entre quadros).
 // `dispose()` tira tudo do grafo e libera cada geometria, material, textura, luz e instância.
 import { Group, type PerspectiveCamera, type Scene } from 'three';
@@ -13,10 +13,12 @@ import { ComportasView } from './view/comportas';
 import { DecalsView } from './view/decals';
 import { construirFase, malhasInstanciadas } from './view/faseMesh';
 import { Coletor } from './view/geometria';
+import { slotsDoRevestimento } from './view/revestimento';
 import { InimigosView } from './view/inimigos';
 import { LuzesFase } from './view/luzes';
 import { construirObjetos } from './view/objetos';
 import { ParticulasView } from './view/particulas';
+import { PerigosAreaView } from './view/perigosArea';
 import { PickupsView } from './view/pickups';
 import { PortasView } from './view/portas';
 import { construirProps } from './view/props';
@@ -34,6 +36,7 @@ export class LevelRuntime {
   private readonly raiz = new Group();
   private readonly portas: PortasView;
   private readonly comportas: ComportasView;
+  private readonly perigosArea: PerigosAreaView;
   private readonly pickups: PickupsView;
   private readonly luzes: LuzesFase;
   private readonly inimigos: InimigosView;
@@ -63,7 +66,7 @@ export class LevelRuntime {
       const instancias = construirFase(world.grid, co);
       this.portas = new PortasView(world, this.rec, co, this.raiz);
       construirObjetos(fase, world.grid, co);
-      co.finalizar(this.rec, this.raiz, SEM_SOMBRA);
+      co.finalizar(this.rec, this.raiz, SEM_SOMBRA, slotsDoRevestimento(fase.ambiente.revestimento));
       malhasInstanciadas(instancias, this.rec, this.raiz);
       this.comportas = new ComportasView(fase, world.grid, this.rec, this.raiz);
       construirProps(fase, world.grid, this.rec, this.raiz);
@@ -74,6 +77,7 @@ export class LevelRuntime {
       this.inimigos = new InimigosView(this.rec, this.raiz);
       this.projeteis = new ProjeteisView(this.rec, this.raiz, camera);
       this.particulas = new ParticulasView(this.rec, this.raiz, camera);
+      this.perigosArea = new PerigosAreaView(fase, world.grid, this.rec, this.raiz, this.particulas);
       // presos à câmera (fora da raiz): descartados à parte
       clarao = new ClaraoCano(camera);
       armas = new ArmasView(this.rec, camera, clarao);
@@ -96,6 +100,7 @@ export class LevelRuntime {
     this.luzes.configurar(multiplicador, emissivo, reduzirFlashes);
     this.inimigos.configurar(reduzirFlashes);
     this.comportas.configurar(reduzirFlashes);
+    this.perigosArea.configurar(reduzirFlashes, multiplicador);
     this.armas.configurar(reduzirFlashes, multiplicador);
   }
 
@@ -108,6 +113,7 @@ export class LevelRuntime {
     this.t += dt;
     this.portas.sincronizar(world);
     this.comportas.sincronizar(world);
+    this.perigosArea.sincronizar(world);
     this.pickups.sincronizar(world, this.t);
     this.luzes.sincronizar(world, this.camera.position, this.t);
     this.inimigos.sincronizar(world, eventos, dt, alfa);
@@ -126,6 +132,7 @@ export class LevelRuntime {
   reconstruirDinamicos(world: World): void {
     this.inimigos.limpar();
     this.comportas.reiniciar();
+    this.perigosArea.reiniciar();
     this.projeteis.limpar();
     this.particulas.limpar();
     this.decals.limparMarcas();

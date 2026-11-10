@@ -11,7 +11,7 @@ import { tensaoAlvo } from '../../src/sim/tension';
 import { executar } from '../../src/sim/triggers';
 import { ferirInimigo } from '../../src/sim/weapons';
 import {
-  INPUT_VAZIO, criarWorld, gravarCheckpoint, restaurarCheckpoint, type InputFrame, type Inimigo, type World,
+  INPUT_VAZIO, criarWorld, gravarCheckpoint, restaurarCheckpoint, type EstadoChefe096, type InputFrame, type Inimigo, type World,
 } from '../../src/sim/world';
 import { faseComChefe } from './ajuda';
 
@@ -19,6 +19,12 @@ const LESTE = -Math.PI / 2;   // frente = (1, 0)
 const OESTE = Math.PI / 2;    // frente = (-1, 0)
 
 const chefeDe = (w: World): Inimigo => w.inimigos.find((i) => i.id === w.chefe!.inimigoId)!;
+/** O estado do chefe, estreitado para o 096 (o `EstadoChefe` é discriminado por `tipo`). */
+function c096(w: World): EstadoChefe096 {
+  const c = w.chefe!;
+  if (c.tipo !== 'entidade096') throw new Error('esperava o chefe 096');
+  return c;
+}
 function rodar(w: World, segundos: number, input: InputFrame | ((k: number) => InputFrame) = INPUT_VAZIO): SimEvent[] {
   const ev: SimEvent[] = [];
   const n = Math.round(segundos / PASSO);
@@ -50,7 +56,7 @@ describe('criação', () => {
     expect(c.tipo).toBe('entidade096');
     expect(c.vida).toBe(900);
     expect(c.yaw).toBe(1);
-    expect(w.chefe!.fase).toBe('inerte');
+    expect(c096(w).fase).toBe('inerte');
     expect(w.stats.totalInimigos).toBe(1);
     expect(w.perigos).toEqual([]);
   });
@@ -66,10 +72,10 @@ describe('despertar', () => {
   it('desperta por mira acumulada (1,5 s), uma vez', () => {
     const w = criarWorld(faseComChefe(CORREDOR, { em: [18, 1] }, { spawnYaw: LESTE, saida: [20, 3] }));
     const antes = rodar(w, 1.4);
-    expect(w.chefe!.fase).toBe('inerte');
+    expect(c096(w).fase).toBe('inerte');
     expect(tipos(antes)).not.toContain('chefe_desperta');
     const depois = rodar(w, 0.2);
-    expect(w.chefe!.fase).toBe('despertando');
+    expect(c096(w).fase).toBe('despertando');
     expect(tipos(depois).filter((t) => t === 'chefe_desperta')).toHaveLength(1);
   });
 
@@ -78,17 +84,17 @@ describe('despertar', () => {
     rodar(w, 1.0);
     w.jogador.yaw = OESTE;
     rodar(w, 1.0);
-    expect(w.chefe!.fase).toBe('inerte');
+    expect(c096(w).fase).toBe('inerte');
     w.jogador.yaw = LESTE;
     rodar(w, 0.6);
-    expect(w.chefe!.fase).toBe('despertando');
+    expect(c096(w).fase).toBe('despertando');
   });
 
   it('não desperta sem linha de visão', () => {
     const w = criarWorld(faseComChefe(COM_PAREDE, { em: [18, 1] }, { spawnYaw: LESTE, saida: [20, 3] }));
     rodar(w, 3);
-    expect(w.chefe!.fase).toBe('inerte');
-    expect(w.chefe!.olhar).toBe(0);
+    expect(c096(w).fase).toBe('inerte');
+    expect(c096(w).olhar).toBe(0);
   });
 
   it('desperta com o jogador a até 8 m, mesmo sem olhar', () => {
@@ -105,7 +111,7 @@ describe('despertar', () => {
     ferirInimigo(w, chefeDe(w), 5);
     const ev = rodar(w, PASSO);
     expect(tipos(ev)).toContain('chefe_desperta');
-    expect(w.chefe!.fase).toBe('despertando');
+    expect(c096(w).fase).toBe('despertando');
     expect(chefeDe(w).modo).toBe('suspeita');   // derivado da fase, nunca 'dor'
   });
 
@@ -116,9 +122,9 @@ describe('despertar', () => {
     const pos = { ...chefeDe(w).pos };
     rodar(w, 2.3);
     expect(chefeDe(w).pos).toEqual(pos);
-    expect(w.chefe!.fase).toBe('despertando');
+    expect(c096(w).fase).toBe('despertando');
     rodar(w, 0.3);
-    expect(w.chefe!.fase).toBe('perseguicao');
+    expect(c096(w).fase).toBe('perseguicao');
     expect(Math.abs(Math.cos(chefeDe(w).yaw - OESTE))).toBeGreaterThan(0.99);   // virado para o oeste (jogador)
     rodar(w, 0.5);
     expect(chefeDe(w).pos.x).toBeLessThan(pos.x - 2);
@@ -133,7 +139,7 @@ describe('perseguição', () => {
       ######################
     `, { em: 'C' }, { portas: [{ id: 'd', em: 'D', trancada: true }], saida: [20, 1] }));
     // a saída está no P, mas com o chefe vivo a fase não conclui
-    w.chefe!.fase = 'perseguicao';
+    c096(w).fase = 'perseguicao';
     let tArromba = -1;
     let tAbre = -1;
     for (let k = 0; k < 60 * 8 && tAbre < 0; k++) {
@@ -144,7 +150,7 @@ describe('perseguição', () => {
         }
         if (e.tipo === 'porta' && e.id === 'd' && e.estado === 'abrindo') tAbre = w.t;
       }
-      if (tArromba >= 0 && tAbre < 0) expect(w.chefe!.fase).toBe('arrombando');
+      if (tArromba >= 0 && tAbre < 0) expect(c096(w).fase).toBe('arrombando');
     }
     expect(tArromba).toBeGreaterThan(0);
     expect(tAbre - tArromba).toBeCloseTo(CHEFE_096.arrombar, 1);
@@ -155,7 +161,7 @@ describe('perseguição', () => {
 
   it('a até 1,3 m golpeia com preparo e cadência, dano 70', () => {
     const w = criarWorld(faseComChefe(CORREDOR, { em: [3, 1] }, { spawnYaw: OESTE, saida: [20, 3] }));
-    w.chefe!.fase = 'perseguicao';
+    c096(w).fase = 'perseguicao';
     w.jogador.vida = 1000;
     const ev = rodar(w, 1.2);
     expect(tipos(ev)).toContain('inimigo_ataque');
@@ -176,18 +182,18 @@ describe('arena', () => {
 
   it('entrar na arena marca naArena e começa uma investida na direção do jogador', () => {
     const w = criarWorld(faseComChefe(ARENA, { em: [8, 2], arena: [6, 1, 5, 3] }, { saida: [10, 3] }));
-    w.chefe!.fase = 'perseguicao';
+    c096(w).fase = 'perseguicao';
     const ev = rodar(w, PASSO * 2);
-    expect(w.chefe!.naArena).toBe(true);
+    expect(c096(w).naArena).toBe(true);
     expect(tipos(ev)).toContain('chefe_investida');
-    expect(w.chefe!.fase).toBe('investida');
-    expect(w.chefe!.investida!.x).toBeLessThan(0);   // jogador a oeste
+    expect(c096(w).fase).toBe('investida');
+    expect(c096(w).investida!.x).toBeLessThan(0);   // jogador a oeste
     expect(tensaoAlvo(w)).toBeGreaterThanOrEqual(0.5 + 0.2);
   });
 
   it('investida para em parede e entra em pausa', () => {
     const w = criarWorld(faseComChefe(ARENA, { em: [5, 2], arena: [1, 1, 10, 3] }, { saida: [10, 3] }));
-    const c = w.chefe!;
+    const c = c096(w);
     c.naArena = true;
     c.fase = 'investida';
     c.timer = CHEFE_096.investidaMax;
@@ -203,7 +209,7 @@ describe('arena', () => {
 
   it('investida que passa a 1,3 m do jogador o golpeia', () => {
     const w = criarWorld(faseComChefe(ARENA, { em: [6, 1], arena: [1, 1, 10, 3] }, { saida: [10, 3] }));
-    const c = w.chefe!;
+    const c = c096(w);
     c.naArena = true;
     c.fase = 'investida';
     c.timer = CHEFE_096.investidaMax;
@@ -228,7 +234,7 @@ describe('comporta', () => {
   it('tira danoChefe × vidaMax do chefe no vão e respeita a recarga', () => {
     const w = criarWorld(faseComChefe(SALA, { em: [5, 2], perigos: [comporta] }, { saida: [10, 3] }));
     w.jogador.vida = 10000;   // o chefe acorda com o golpe e vem atrás do jogador
-    expect(w.perigos).toEqual([{ id: 'c1', ativo: 0, recarga: 0 }]);
+    expect(w.perigos).toEqual([{ id: 'c1', ativo: 0, recarga: 0, aviso: 0, danoPulso: 0, jogadorNaArea: false }]);
     const ev = executar(w, { acao: 'perigo', id: 'c1' });
     expect(ev).toContainEqual({ tipo: 'perigo', id: 'c1', estado: 'fecha' });
     expect(chefeDe(w).vida).toBe(900 - 225);
@@ -244,7 +250,7 @@ describe('comporta', () => {
     expect(abre).toContainEqual({ tipo: 'perigo', id: 'c1', estado: 'abre' });
     expect(solidoDe(w)(5, 1)).toBe(false);
     rodar(w, 3);
-    w.chefe!.fase = 'pausa';   // segura o chefe parado no vão para o segundo golpe
+    c096(w).fase = 'pausa';   // segura o chefe parado no vão para o segundo golpe
     chefeDe(w).pos = centro([5, 2]);
     executar(w, { acao: 'perigo', id: 'c1' });
     expect(chefeDe(w).vida).toBe(900 - 450);
@@ -274,7 +280,7 @@ describe('checkpoint', () => {
     const w = criarWorld(faseComChefe(CORREDOR, { em: [18, 1], retomada: [15, 3], perigos: [
       { id: 'c1', tipo: 'comporta', area: [10, 1, 1, 3], duracao: 2, recarga: 5, danoChefe: 0.1, danoComum: 10 },
     ] }, { spawnYaw: OESTE, saida: [20, 3] }));
-    const c = w.chefe!;
+    const c = c096(w);
     c.fase = 'arrombando';
     c.portaAlvo = 'x';
     c.investida = { x: 1, z: 0 };
@@ -291,7 +297,7 @@ describe('checkpoint', () => {
 
   it('restauro com o chefe já morto (fase ainda não atualizada) não o ressuscita', () => {
     const w = criarWorld(faseComChefe(CORREDOR, { em: [18, 1], retomada: [15, 3] }, { spawnYaw: OESTE, saida: [20, 3] }));
-    w.chefe!.fase = 'perseguicao';
+    c096(w).fase = 'perseguicao';
     ferirInimigo(w, chefeDe(w), 10000);
     gravarCheckpoint(w);
     restaurarCheckpoint(w);
@@ -304,7 +310,7 @@ describe('checkpoint', () => {
     const w = criarWorld(faseComChefe(CORREDOR, { em: [18, 1], retomada: [15, 3] }, { spawnYaw: OESTE, saida: [20, 3] }));
     restaurarCheckpoint(w);
     expect(chefeDe(w).pos).toEqual(centro([18, 1]));
-    expect(w.chefe!.fase).toBe('inerte');
+    expect(c096(w).fase).toBe('inerte');
   });
 });
 
@@ -316,7 +322,7 @@ describe('morte e conclusão', () => {
     ferirInimigo(w, chefeDe(w), 10000);
     const ev = rodar(w, PASSO);
     expect(tipos(ev)).toEqual(expect.arrayContaining(['chefe_morto', 'fase_concluida']));
-    expect(w.chefe!.fase).toBe('morto');
+    expect(c096(w).fase).toBe('morto');
     expect(w.estado).toBe('concluida');
   });
 
@@ -329,7 +335,7 @@ describe('morte e conclusão', () => {
     w.jogador.municao.balas = 120;
     const ev = rodar(w, 25, (k) => ({ ...INPUT_VAZIO, atirar: k % 2 === 0 }));
     expect(tipos(ev).filter((t) => t === 'chefe_morto')).toHaveLength(1);
-    expect(w.chefe!.fase).toBe('morto');
+    expect(c096(w).fase).toBe('morto');
     expect(chefeDe(w).modo).toBe('morto');
     expect(w.stats.mortos).toBe(1);
     expect(w.estado).toBe('jogando');
@@ -357,7 +363,7 @@ describe('gatilhos do chefe', () => {
       ],
     }));
     expect(executar(w, { acao: 'chefe' })).toContainEqual({ tipo: 'chefe_desperta' });
-    expect(w.chefe!.fase).toBe('despertando');
+    expect(c096(w).fase).toBe('despertando');
     expect(executar(w, { acao: 'chefe' })).toEqual([]);
     expect(tipos(rodar(w, PASSO))).not.toContain('gatilho');
     chefeDe(w).vida = 400;
@@ -371,10 +377,10 @@ describe('tensão', () => {
   it('chefe acordado soma 0,5; inerte e morto não', () => {
     const w = criarWorld(faseComChefe(CORREDOR, { em: [18, 1] }, { spawnYaw: OESTE, saida: [20, 3] }));
     expect(tensaoAlvo(w)).toBe(0);
-    w.chefe!.fase = 'pausa';
+    c096(w).fase = 'pausa';
     chefeDe(w).modo = 'suspeita';
     expect(tensaoAlvo(w)).toBeCloseTo(0.5 + 0.08);
-    w.chefe!.fase = 'morto';
+    c096(w).fase = 'morto';
     chefeDe(w).modo = 'morto';
     expect(tensaoAlvo(w)).toBe(0);
   });
@@ -395,18 +401,18 @@ describe('correção 1 da revisão', () => {
       #P.j.......#
       ############
     `, { em: [8, 1], arena: [1, 1, 10, 1] }, { legenda: { j: { tipo: 'janela' } }, spawnYaw: OESTE, saida: [10, 1] }));
-    w.chefe!.fase = 'perseguicao';
+    c096(w).fase = 'perseguicao';
     w.jogador.vida = 1000;
     const ev = rodar(w, 6);
     expect(tipos(ev)).not.toContain('chefe_investida');
-    expect(w.chefe!.fase).not.toBe('pausa');
+    expect(c096(w).fase).not.toBe('pausa');
     // sem rota até o jogador: vai à célula alcançável mais próxima dele, colado na janela
     expect(coordDe(chefeDe(w).pos)).toEqual([4, 1]);
   });
 
   it('investida diagonal contra a parede para no contato', () => {
     const w = criarWorld(faseComChefe(ARENA, { em: [5, 2], arena: [1, 1, 10, 3] }, { saida: [10, 3] }));
-    const c = w.chefe!;
+    const c = c096(w);
     c.naArena = true;
     c.fase = 'investida';
     c.timer = CHEFE_096.investidaMax;
@@ -428,19 +434,19 @@ describe('correção 1 da revisão', () => {
       #.........#
       ###########
     `, { em: 'C' }, { legenda: { B: { piso: 1.5 }, P: { piso: 1.5 } }, spawnYaw: OESTE, saida: [9, 1] }));
-    w.chefe!.fase = 'perseguicao';
+    c096(w).fase = 'perseguicao';
     rodar(w, 3);
     expect(coordDe(chefeDe(w).pos)).toEqual([5, 3]);
     expect(-Math.sin(chefeDe(w).yaw)).toBeGreaterThan(0.99);   // olhando para o leste
-    expect(w.chefe!.fase).toBe('perseguicao');
+    expect(c096(w).fase).toBe('perseguicao');
   });
 
   it('a mira conta o pitch: olhando para o chão, olhar não acumula', () => {
     const w = criarWorld(faseComChefe(CORREDOR, { em: [18, 1] }, { spawnYaw: LESTE, saida: [20, 3] }));
     w.jogador.pitch = -1.2;
     rodar(w, 2);
-    expect(w.chefe!.olhar).toBe(0);
-    expect(w.chefe!.fase).toBe('inerte');
+    expect(c096(w).olhar).toBe(0);
+    expect(c096(w).fase).toBe('inerte');
   });
 
   it('arrombando sai cedo se outro abriu a porta', () => {
@@ -449,7 +455,7 @@ describe('correção 1 da revisão', () => {
       #C......D...........P#
       ######################
     `, { em: 'C' }, { portas: [{ id: 'd', em: 'D', trancada: true }], saida: [20, 1] }));
-    const c = w.chefe!;
+    const c = c096(w);
     c.fase = 'arrombando';
     c.timer = CHEFE_096.arrombar;
     c.portaAlvo = 'd';
@@ -469,7 +475,7 @@ describe('correção 1 da revisão', () => {
     chefeDe(w).vida = 10;
     const ev = executar(w, { acao: 'perigo', id: 'c1' });
     expect(tipos(ev)).toContain('chefe_morto');
-    expect(w.chefe!.fase).toBe('morto');
+    expect(c096(w).fase).toBe('morto');
     expect(tensaoAlvo(w)).toBe(0);
     expect(tipos(rodar(w, PASSO))).not.toContain('chefe_morto');
   });
@@ -486,7 +492,7 @@ describe('lote final do CP2: velocidade, preparo da investida e passos', () => {
 
   it(`na perseguição corre a CHEFE_096.velocidadePerseguicao (${CHEFE_096.velocidadePerseguicao} m/s)`, () => {
     const w = criarWorld(faseComChefe(LONGO, { em: [27, 2] }, { saida: [1, 3] }));
-    const c = w.chefe!;
+    const c = c096(w);
     c.fase = 'perseguicao';
     w.jogador.vida = 1e6;
     const x0 = chefeDe(w).pos.x;
@@ -506,21 +512,21 @@ describe('lote final do CP2: velocidade, preparo da investida e passos', () => {
       #..........#
       ############
     `, { em: [8, 2], arena: [6, 1, 5, 3] }, { saida: [10, 3] }));
-    w.chefe!.fase = 'perseguicao';
+    c096(w).fase = 'perseguicao';
     const ev = rodar(w, PASSO * 2);
     expect(tipos(ev).filter((t) => t === 'chefe_investida')).toHaveLength(1);
-    expect(w.chefe!.fase).toBe('investida');
+    expect(c096(w).fase).toBe('investida');
     const pos = { ...chefeDe(w).pos };
     rodar(w, CHEFE_096.preparoInvestida - PASSO * 3);
     expect(chefeDe(w).pos).toEqual(pos);
-    expect(w.chefe!.fase).toBe('investida');
+    expect(c096(w).fase).toBe('investida');
     rodar(w, 0.2);
     expect(chefeDe(w).pos.x).toBeLessThan(pos.x - 1);
   });
 
   it('emite chefe_passo a cada CHEFE_096.passoMetros andados na perseguição, na posição dele', () => {
     const w = criarWorld(faseComChefe(LONGO, { em: [27, 2] }, { saida: [1, 3] }));
-    w.chefe!.fase = 'perseguicao';
+    c096(w).fase = 'perseguicao';
     w.jogador.vida = 1e6;
     const ev = rodar(w, 1);
     const passos = ev.filter((e) => e.tipo === 'chefe_passo');
@@ -535,7 +541,7 @@ describe('lote final do CP2: velocidade, preparo da investida e passos', () => {
   it('também emite passos na investida; parado (inerte, despertando, preparo) não', () => {
     const w = criarWorld(faseComChefe(LONGO, { em: [20, 2], arena: [1, 1, 28, 3] }, { saida: [1, 3] }));
     expect(rodar(w, 0.5).some((e) => e.tipo === 'chefe_passo')).toBe(false);   // inerte, longe
-    const c = w.chefe!;
+    const c = c096(w);
     c.naArena = true;
     c.fase = 'investida';
     c.timer = CHEFE_096.investidaMax + CHEFE_096.preparoInvestida;

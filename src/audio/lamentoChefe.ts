@@ -1,5 +1,6 @@
-// Laço posicional do lamento do chefe inerte: guia o jogador até ele e cria tensão. Toca na
-// posição dada por `lamentoDoChefe` (regras.ts) e para ao despertar ou ao descarregar a fase.
+// Laços posicionais: um laço (`Laco`) tocando num ponto da fase, com oclusão suave. Usado pelo
+// lamento do chefe inerte (guia o jogador até ele e cria tensão; toca na posição dada por
+// `lamentoDoChefe`) e pelos laços dos perigos de área (zumbido da UV, jato de vapor).
 // Cadeia: laço → passa-baixa (oclusão) → ganho (oclusão) → panner → barramento.
 import { criarCadeiaPosicional } from './posicional';
 import { POSICIONAL } from './regras';
@@ -11,7 +12,9 @@ const ABERTO = 16000;
 /** constante de tempo (s) da troca de oclusão: sem degrau */
 const SUAVE = 0.12;
 
-export class LamentoChefe {
+export type FabricaLaco = (b: Bancada, destino: AudioNode) => Laco;
+
+export class LacoPosicional {
   private readonly laco: Laco;
   private readonly filtro: BiquadFilterNode;
   private readonly ganho: GainNode;
@@ -19,7 +22,7 @@ export class LamentoChefe {
   private abafado: boolean | null = null;
   private parado = false;
 
-  constructor(private readonly b: Bancada, destino: AudioNode, x: number, y: number, z: number) {
+  constructor(private readonly b: Bancada, destino: AudioNode, x: number, y: number, z: number, fabrica: FabricaLaco) {
     const ctx = b.ctx;
     const cadeia = criarCadeiaPosicional(ctx, x, y, z, true);
     // a cadeia ocluída é [filtro, ganho, panner]; começa aberta e é ajustada por `abafar`
@@ -29,7 +32,7 @@ export class LamentoChefe {
     this.filtro.frequency.value = ABERTO;
     this.ganho.gain.value = 1;
     this.panner.connect(destino);
-    this.laco = lamentoInerte(b, this.filtro);
+    this.laco = fabrica(b, this.filtro);
   }
 
   /** Atrás de parede ou porta fechada: abafado (rampa curta). */
@@ -69,5 +72,12 @@ export class LamentoChefe {
         }
       }
     }, 300 + rampa * 1000);
+  }
+}
+
+/** Lamento do chefe inerte (096), posicional. */
+export class LamentoChefe extends LacoPosicional {
+  constructor(b: Bancada, destino: AudioNode, x: number, y: number, z: number) {
+    super(b, destino, x, y, z, lamentoInerte);
   }
 }

@@ -100,6 +100,20 @@ export function coordDe(p: Vec2): Coord {
   return [Math.floor(p.x / CELL), Math.floor(p.z / CELL)];
 }
 
+/** Retângulo de células [col, row, larg, alt] (o mesmo formato de `Area` em `fase.ts`). */
+type Retangulo = readonly [col: number, row: number, larg: number, alt: number];
+
+/** A célula (col, row) está no retângulo. A única regra de "dentro da área" da simulação. */
+export function celulaNaArea(col: number, row: number, a: Retangulo): boolean {
+  return col >= a[0] && col < a[0] + a[2] && row >= a[1] && row < a[1] + a[3];
+}
+
+/** A célula do ponto está no retângulo (o raio não conta). */
+export function naArea(p: Vec2, a: Retangulo): boolean {
+  const [col, row] = coordDe(p);
+  return celulaNaArea(col, row, a);
+}
+
 /** Altura do piso da célula (col,row) no ponto (x,z); em rampa, interpola entre as vizinhas do eixo. */
 function alturaEm(g: Grid, col: number, row: number, x: number, z: number): number {
   const c = celula(g, col, row);

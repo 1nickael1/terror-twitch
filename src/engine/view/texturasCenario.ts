@@ -1,8 +1,9 @@
-// Texturas procedurais (canvas) do cenário: chapa das comportas com faixas de perigo e as placas
+// Texturas procedurais (canvas) do cenário: azulejo das paredes (revestimento `azulejo`), chapa das comportas com faixas de perigo e as placas
 // de sinalização. Sinalização institucional inventada: fundo claro, faixa superior escura com um
 // símbolo geométrico nosso (hexágono vazado atravessado por uma barra horizontal), texto em caixa alta.
-import { CanvasTexture, SRGBColorSpace } from 'three';
+import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three';
 import { origemNoAtlas, type LayoutAtlas } from './placasLogica';
+import { AZULEJO } from './revestimento';
 
 function criarCanvas(larg: number, alt: number): { c: HTMLCanvasElement; g: CanvasRenderingContext2D } {
   const c = document.createElement('canvas');
@@ -17,6 +18,105 @@ function textura(c: HTMLCanvasElement): CanvasTexture {
   const t = new CanvasTexture(c);
   t.colorSpace = SRGBColorSpace;
   return t;
+}
+
+/** Sorteio determinístico (a textura sai igual a cada carga). */
+function sorteio(semente: number): () => number {
+  let s = semente >>> 0;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+/**
+ * Azulejo verde-hospital (C3.5, correção 1): 2 m × 2 m de parede (uma repetição da textura), `AZULEJO.ladrilhos`
+ * ladrilhos por lado com rejunte claro, tom variando de peça a peça, brilho do esmalte no canto, lascas,
+ * fissuras e manchas leves de umidade. Emenda nas bordas (manchas desenhadas também do outro lado).
+ */
+export function texturaAzulejo(): CanvasTexture {
+  const s = AZULEJO.px;
+  const n = AZULEJO.ladrilhos;
+  const t = s / n;
+  const r = sorteio(49);
+  const { c, g } = criarCanvas(s, s);
+  g.fillStyle = '#cdd3c6';   // rejunte
+  g.fillRect(0, 0, s, s);
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const x0 = x * t + 1;
+      const y0 = y * t + 1;
+      const l = t - 2;
+      const k = r() * 14 - 7;
+      g.fillStyle = `rgb(${Math.round(104 + k)},${Math.round(150 + k * 1.2)},${Math.round(126 + k)})`;
+      g.fillRect(x0, y0, l, l);
+      // esmalte: canto de cima mais claro, base levemente escura
+      const brilho = g.createLinearGradient(x0, y0, x0 + l, y0 + l);
+      brilho.addColorStop(0, 'rgba(235,250,240,0.22)');
+      brilho.addColorStop(0.45, 'rgba(235,250,240,0)');
+      brilho.addColorStop(1, 'rgba(10,30,20,0.12)');
+      g.fillStyle = brilho;
+      g.fillRect(x0, y0, l, l);
+      // pontinhos do esmalte
+      for (let i = 0; i < 18; i++) {
+        g.fillStyle = r() > 0.5 ? 'rgba(220,240,228,0.18)' : 'rgba(30,60,45,0.18)';
+        g.fillRect(x0 + r() * l, y0 + r() * l, 1, 1);
+      }
+      // lasca num canto (às vezes): aparece o biscoito claro
+      if (r() < 0.12) {
+        const cx = r() < 0.5 ? x0 : x0 + l;
+        const cy = r() < 0.5 ? y0 : y0 + l;
+        const tam = 3 + r() * 4;
+        g.fillStyle = '#d9d2bf';
+        g.beginPath();
+        g.moveTo(cx, cy);
+        g.lineTo(cx + (cx === x0 ? tam : -tam), cy);
+        g.lineTo(cx, cy + (cy === y0 ? tam : -tam));
+        g.closePath();
+        g.fill();
+      }
+      // fissura fina (rara)
+      if (r() < 0.06) {
+        g.strokeStyle = 'rgba(40,55,45,0.45)';
+        g.lineWidth = 0.8;
+        g.beginPath();
+        let px = x0 + r() * l;
+        let py = y0;
+        g.moveTo(px, py);
+        while (py < y0 + l) {
+          px = Math.min(x0 + l, Math.max(x0, px + (r() - 0.5) * 6));
+          py += 3 + r() * 4;
+          g.lineTo(px, Math.min(py, y0 + l));
+        }
+        g.stroke();
+      }
+    }
+  }
+  // manchas de umidade e sujeira, repetidas do outro lado da borda para emendar
+  for (let i = 0; i < 12; i++) {
+    const x = r() * s;
+    const y = r() * s;
+    const rad = 14 + r() * 40;
+    const amarela = r() < 0.6;
+    for (const dx of [-s, 0, s]) {
+      for (const dy of [-s, 0, s]) {
+        const grd = g.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, rad);
+        grd.addColorStop(0, amarela ? 'rgba(120,105,50,0.16)' : 'rgba(25,30,25,0.16)');
+        grd.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = grd;
+        g.fillRect(x + dx - rad, y + dy - rad, rad * 2, rad * 2);
+      }
+    }
+  }
+  // escorridos verticais finos (o rejunte escurece embaixo deles)
+  for (let i = 0; i < 8; i++) {
+    g.fillStyle = 'rgba(40,45,35,0.12)';
+    g.fillRect(r() * s, r() * s * 0.5, 1 + r() * 1.5, s * (0.2 + r() * 0.4));
+  }
+  const tex = textura(c);
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  return tex;
 }
 
 /** Faixa de diagonais pretas e laranja entre `y0` e `y1`. */

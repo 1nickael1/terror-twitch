@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { barraDoChefe, dicaDeUso, dicaDoHud, duracaoMensagem, formatarTempo, ladoDoDano, nomeDoPickup, textoDoEvento } from '../../src/components/formato';
 import { criarWorld, type World } from '../../src/sim/world';
-import { faseComChefe, faseMinima } from '../sim/ajuda';
+import { faseComChefe, faseComChefe049, faseMinima } from '../sim/ajuda';
 import type { PickupDef } from '../../src/sim/fase';
 
 describe('formatarTempo', () => {
@@ -94,6 +94,20 @@ describe('barraDoChefe', () => {
       i.vida = 0;
       i.modo = 'morto';
     }
+    expect(barraDoChefe(w)).toBeNull();
+  });
+
+  it('chefe 049: nome da ChefeDef e vida pela vida do tipo dele; sem barra inerte ou morto', () => {
+    const w = criarWorld(faseComChefe049(PLANTA, { em: [5, 1] }));
+    expect(barraDoChefe(w)).toBeNull();
+    for (const fase of ['despertando', 'caminhando', 'tocando', 'reanimando', 'apressado'] as const) {
+      if (w.chefe?.tipo === 'entidade049') w.chefe.fase = fase;
+      expect(barraDoChefe(w)).toEqual({ nome: 'SCP-049', vida: 1 });
+    }
+    const i = chefeDe(w);
+    if (i) i.vida = 1100 * 0.25;
+    expect(barraDoChefe(w)).toEqual({ nome: 'SCP-049', vida: 0.25 });
+    if (w.chefe?.tipo === 'entidade049') w.chefe.fase = 'morto';
     expect(barraDoChefe(w)).toBeNull();
   });
 });
