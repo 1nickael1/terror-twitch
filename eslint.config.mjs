@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // documentos e memória de agentes (não são código do jogo)
+    ".remember/**",
+    ".superpowers/**",
   ]),
 ]);
 

@@ -1,18 +1,20 @@
-import { Color, FogExp2 } from 'three';
 import type { VisualStyle } from './types';
 
 export const CAMERA: VisualStyle = {
   id: 'camera',
-  key: '4',
   nome: 'Câmera do Agente',
   frase: 'Body-cam de visão noturna de um agente da Força-Tarefa. Verde, ruidosa, fria.',
   alturaInterna: 450,
   ampliacao: 'linear',
-  aplicar({ scene, bank, lights }) {
-    bank.setKind('standard');
-    scene.fog = new FogExp2(0x000000, 0.035);
-    scene.background = new Color(0x000000);
-    lights.apply({ ambient: 0.05, fluorescent: 6, flicker: 0.6, alarm: 15, infrared: 6 });
+  cena: {
+    nevoa: { cor: 0x000000, densidade: 0.035 },
+    material: 'standard',
+    texturasNearest: false,
+    ambiente: 0.42,
+    luzes: 0.6,
+    lanterna: 0.1,
+    emissivo: 1,
+    infravermelho: 6,
   },
   fragmentShader: /* glsl */ `
 vec2 barrel(vec2 uv) {

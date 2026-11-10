@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'SCP Terror — protótipo de estilos',
-  description: 'Protótipo de estilos visuais de um jogo de terror em primeira pessoa inspirado na SCP Foundation.',
+  title: 'SCP Terror — demo',
+  description: 'Demo de um jogo de tiro e terror em primeira pessoa, no navegador, inspirado na SCP Foundation.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,21 +1,21 @@
-import { Color, FogExp2 } from 'three';
 import type { VisualStyle } from './types';
 
 export const LANTERNA: VisualStyle = {
   id: 'lanterna',
-  key: '3',
   nome: 'Lanterna',
   frase: 'Escuro de verdade. Só o que a sua lanterna alcança existe.',
   alturaInterna: null,
   ampliacao: 'linear',
-  aplicar({ scene, bank, lights }) {
-    bank.setKind('standard');
-    scene.fog = new FogExp2(0x000000, 0.11);
-    scene.background = new Color(0x000000);
-    lights.apply({
-      ambient: 0.015, ambientColor: 0x445066, fluorescent: 2.5, flicker: 1, alarm: 12,
-      flashlight: 140, flashlightShadows: true, flashlightAngle: 0.42,
-    });
+  cena: {
+    nevoa: { cor: null, densidade: 0.11 },
+    material: 'standard',
+    texturasNearest: false,
+    ambiente: 0.125,
+    corAmbiente: 0x445066,
+    luzes: 0.25,
+    lanterna: 1,
+    emissivo: 1,
+    infravermelho: 0,
   },
   fragmentShader: /* glsl */ `
 void main() {

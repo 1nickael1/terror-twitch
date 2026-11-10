@@ -5,9 +5,13 @@ import {
 import { COMMON, VERTEX } from './glsl';
 import type { VisualStyle } from './types';
 
-export function internalSize(viewW: number, viewH: number, alturaInterna: number | null): { w: number; h: number } {
-  if (alturaInterna === null || alturaInterna >= viewH) return { w: viewW, h: viewH };
-  return { w: Math.max(1, Math.round((viewW * alturaInterna) / viewH)), h: alturaInterna };
+/** `escala` (qualidade) multiplica a altura interna do filtro; null = altura da tela. */
+export function internalSize(
+  viewW: number, viewH: number, alturaInterna: number | null, escala = 1,
+): { w: number; h: number } {
+  const alvo = Math.max(1, Math.round((alturaInterna ?? viewH) * escala));
+  if (alvo >= viewH) return { w: viewW, h: viewH };
+  return { w: Math.max(1, Math.round((viewW * alvo) / viewH)), h: alvo };
 }
 
 export class PostPipeline {
@@ -16,6 +20,7 @@ export class PostPipeline {
   private style: VisualStyle | null = null;
   private viewW = 1;
   private viewH = 1;
+  private escala = 1;
   private readonly quadScene = new Scene();
   private readonly quadCamera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
   private readonly quad = new Mesh(new PlaneGeometry(2, 2));
@@ -45,6 +50,13 @@ export class PostPipeline {
     this.rebuild();
   }
 
+  /** escala da resolução interna (qualidade gráfica) */
+  setEscala(escala: number): void {
+    if (escala === this.escala) return;
+    this.escala = escala;
+    this.rebuild();
+  }
+
   render(scene: Scene, camera: Camera, time: number): void {
     if (!this.target || !this.material) return;
     this.renderer.setRenderTarget(this.target);
@@ -64,7 +76,7 @@ export class PostPipeline {
 
   private rebuild(): void {
     if (!this.style || !this.material) return;
-    const { w, h } = internalSize(this.viewW, this.viewH, this.style.alturaInterna);
+    const { w, h } = internalSize(this.viewW, this.viewH, this.style.alturaInterna, this.escala);
     const filter = this.style.ampliacao === 'nearest' ? NearestFilter : LinearFilter;
     this.target?.dispose();
     this.target = new WebGLRenderTarget(w, h, { type: HalfFloatType, minFilter: filter, magFilter: filter, depthBuffer: true });

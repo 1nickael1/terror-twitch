@@ -4,7 +4,6 @@ export interface Textures {
   concreto: CanvasTexture;
   piso: CanvasTexture;
   teto: CanvasTexture;
-  faixa: CanvasTexture;
   porta: CanvasTexture;
   placa(texto: string): CanvasTexture;
 }
@@ -103,25 +102,6 @@ export function createTextures(): Textures {
     speckle(g, s, r, 500, '#a0a09a', '#55554f');
   });
 
-  const faixa = make(
-    64,
-    (g, s) => {
-      g.fillStyle = '#d9b01c';
-      g.fillRect(0, 0, s * 4, s);
-      g.fillStyle = '#141414';
-      for (let x = -s; x < s * 4; x += s / 2) {
-        g.beginPath();
-        g.moveTo(x, 0);
-        g.lineTo(x + s / 4, 0);
-        g.lineTo(x + s / 4 + s, s);
-        g.lineTo(x + s, s);
-        g.closePath();
-        g.fill();
-      }
-    },
-    256,
-  );
-
   const porta = make(128, (g, s) => {
     const r = rng(4);
     g.fillStyle = '#4f555c';
@@ -160,5 +140,5 @@ export function createTextures(): Textures {
       128,
     );
 
-  return { concreto, piso, teto, faixa, porta, placa };
+  return { concreto, piso, teto, porta, placa };
 }

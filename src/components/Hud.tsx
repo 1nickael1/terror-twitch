@@ -1,18 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { STYLES } from '../looks/registry';
-import type { EngineStore, HudSnapshot } from './engineStore';
+import { CORES_CARTAO } from '../engine/coresCartao';
+import { ARMAS, JOGADOR, ORDEM_ARMAS } from '../sim/balance';
+import type { HudSnapshot } from './engineStore';
 import css from './game.module.css';
 
-export const AJUDA =
-  'Clique na tela para jogar · WASD andar · Shift correr · Mouse ou setas olhar · Clique ou Espaço atirar · 1–4 estilo · R reiniciar · Esc soltar o mouse';
-
-/** Conforme o bloco de licença da página do artigo na SCP Wiki. */
-const AUTOR_096 = 'Dr Dan';
-
+/** HUD de jogo: só desenha o snapshot (nada por quadro passa por aqui). */
 export interface HudProps {
-  store: EngineStore;
   snap: HudSnapshot;
 }
 
@@ -43,7 +38,7 @@ function useRelogio(): string {
 function OverlayFita() {
   const s = useSegundos();
   return (
-    <div className={`${css.overlay} ${css.fita}`}>
+    <div className={`${css.overlay} ${css.fita}`} aria-hidden="true">
       <span className={css.cantoSE}>▶ PLAY</span>
       <span className={css.cantoID}>SP {Math.floor(s / 3600)}:{doisDigitos(Math.floor(s / 60) % 60)}:{doisDigitos(s % 60)}</span>
       <span className={css.cantoIE}>NOV. 09 1998</span>
@@ -54,7 +49,7 @@ function OverlayFita() {
 function OverlayCamera() {
   const hora = useRelogio();
   return (
-    <div className={`${css.overlay} ${css.camera}`}>
+    <div className={`${css.overlay} ${css.camera}`} aria-hidden="true">
       <span className={css.cantoSE}>CAM AGT-07</span>
       <span className={`${css.cantoSD} ${css.rec}`}>● REC</span>
       <span className={css.cantoIE}>{hora}</span>
@@ -65,68 +60,73 @@ function OverlayCamera() {
   );
 }
 
-function Creditos({ onClose }: { onClose: () => void }) {
+function Medidor({ nome, valor, max, classe }: { nome: string; valor: number; max: number; classe: string }) {
+  const fracao = Math.max(0, Math.min(1, valor / max));
   return (
-    <div className={css.creditos} role="dialog" aria-label="Créditos">
-      <h2>Créditos</h2>
-      <p>SCP Terror é um protótipo de fã, sem fins comerciais.</p>
-      <p>
-        Inspirado na <a href="https://scp-wiki.wikidot.com" target="_blank" rel="noreferrer">SCP Foundation</a> e no
-        artigo <a href="https://scp-wiki.wikidot.com/scp-096" target="_blank" rel="noreferrer">SCP-096</a>, de {AUTOR_096}.
-      </p>
-      <p>
-        O conteúdo da SCP Foundation é licenciado sob{' '}
-        <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noreferrer">
-          Creative Commons Atribuição-CompartilhaIgual 3.0 (CC BY-SA 3.0)
-        </a>
-        . Elementos derivados deste projeto seguem a mesma licença.
-      </p>
-      <p>O monstro, a cena, as texturas e os shaders são originais deste projeto, feitos em código.</p>
-      <button type="button" onClick={onClose}>Fechar</button>
+    <div className={`${css.medidor} ${classe}`}>
+      <span className={css.medidorNome}>{nome}</span>
+      <span className={css.medidorValor}>{valor}</span>
+      <span className={css.barra} role="meter" aria-label={nome} aria-valuemin={0} aria-valuemax={max} aria-valuenow={valor}>
+        <span style={{ transform: `scaleX(${fracao})` }} />
+      </span>
     </div>
   );
 }
 
-export function Hud({ store, snap }: HudProps) {
-  const [creditos, setCreditos] = useState(false);
-  const estilo = STYLES.find((s) => s.id === snap.estilo);
+const CLASSE_DANO = { frente: css.danoFrente, tras: css.danoTras, esquerda: css.danoEsquerda, direita: css.danoDireita } as const;
 
+export function Hud({ snap }: HudProps) {
+  const arma = ARMAS[snap.arma];
+  const cartoes = [...snap.cartoes].sort((a, b) => a - b);
   return (
-    <>
-      <div className={css.mira} />
-      {snap.estilo === 'fita' && <OverlayFita />}
-      {snap.estilo === 'camera' && <OverlayCamera />}
+    <div className={css.hud}>
+      {snap.filtro === 'fita' && <OverlayFita />}
+      {snap.filtro === 'camera' && <OverlayCamera />}
 
-      <div className={css.topo}>
-        <div className={css.estilos}>
-          {STYLES.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className={s.id === snap.estilo ? css.ativo : undefined}
-              onClick={(e) => {
-                store.setStyle(s.id);
-                e.currentTarget.blur();
-              }}
-            >
-              {s.key} · {s.nome}
-            </button>
+      {snap.danoEm > 0 && (
+        <div
+          key={snap.danoEm}
+          className={`${css.dano} ${snap.danoLado ? CLASSE_DANO[snap.danoLado] : css.danoTodo} ${snap.opcoes.reduzirFlashes ? css.danoSuave : ''}`}
+          aria-hidden="true"
+        />
+      )}
+
+      <div className={css.mira} aria-hidden="true" />
+
+      {cartoes.length > 0 && (
+        <ul className={css.cartoes} aria-label="Cartões de acesso">
+          {cartoes.map((n) => (
+            <li key={n} className={css.cartao} style={{ background: CORES_CARTAO[n].css }}
+              aria-label={`Cartão nível ${n} (${CORES_CARTAO[n].nome})`}>
+              N{n}
+            </li>
           ))}
-        </div>
-        {estilo && (
-          <div className={css.descricao}>
-            <strong>{estilo.nome}</strong>
-            <span>{estilo.frase}</span>
-          </div>
-        )}
+        </ul>
+      )}
+
+      {snap.mensagem && <p className={css.mensagem} role="status">{snap.mensagem}</p>}
+
+      <div className={css.status}>
+        <Medidor nome="Vida" valor={snap.vida} max={JOGADOR.vidaMax} classe={snap.vida <= 25 ? css.critico : css.vida} />
+        <Medidor nome="Colete" valor={snap.colete} max={JOGADOR.coleteMax} classe={css.colete} />
       </div>
 
-      {!snap.travado && <p className={css.ajuda}>{AJUDA}</p>}
-      <button type="button" className={css.creditosBtn} onClick={() => setCreditos(true)}>
-        Créditos
-      </button>
-      {creditos && <Creditos onClose={() => setCreditos(false)} />}
-      {snap.pegouEm > 0 && <div key={snap.pegouEm} className={css.pegou} />}
-    </>
+      <div className={css.armamento}>
+        <span className={css.armaNome}>{arma.nome}</span>
+        <span className={css.municao} aria-label={`Munição: ${snap.municao}`}>{snap.municao}</span>
+        <ol className={css.slots} aria-label="Armas">
+          {ORDEM_ARMAS.map((id, i) => {
+            const tem = snap.armas.includes(id);
+            const atual = id === snap.arma;
+            return (
+              <li key={id} className={`${css.slot} ${tem ? css.slotTem : ''} ${atual ? css.slotAtual : ''}`}
+                aria-label={`${i + 1}: ${tem ? ARMAS[id].nome : 'vazio'}${atual ? ' (na mão)' : ''}`}>
+                {i + 1}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </div>
   );
 }

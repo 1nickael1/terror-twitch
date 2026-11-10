@@ -1,0 +1,122 @@
+// Som da fase carregada: cama de ambiente, drone de tensão, alarme e os sons dos eventos do quadro.
+// Só lê o World; nasce e morre junto com a fase. Antes de o mixer ter contexto, não faz nada.
+import { solidoDe } from '../sim/doors';
+import type { SimEvent } from '../sim/eventos';
+import type { LevelDef } from '../sim/fase';
+import type { World } from '../sim/world';
+import type { Mixer } from './Mixer';
+import { atualizarOuvinte, criarCadeiaPosicional } from './posicional';
+import { audivel, LimitadorSons, ocluido, somDoEvento, type NomeSom, type Ouvinte } from './regras';
+import * as S from './sintese';
+
+const SONS: Record<NomeSom, S.Sintese> = {
+  tiroPistola: S.tiroPistola, tiroEscopeta: S.tiroEscopeta, tiroSmg: S.tiroSmg, disparoLancador: S.disparoLancador,
+  explosao: S.explosao, impactoParede: S.impactoParede, impactoCarne: S.impactoCarne,
+  passo: S.passo, pulo: S.pulo, pouso: S.pouso, portaMotor: S.portaMotor, portaBaque: S.portaBaque,
+  portaNegada: S.portaNegada, pickup: S.pickup, armaTrocada: S.armaTrocada, semMunicao: S.semMunicao,
+  dorJogador: S.dorJogador, grunhidoAlerta: S.grunhidoAlerta, grunhidoAtaque: S.grunhidoAtaque,
+  dorInimigo: S.dorInimigo, morteInimigo: S.morteInimigo, projetil: S.projetil, bip: S.bip,
+  bipDiscreto: S.bipDiscreto, checkpoint: S.checkpoint, segredo: S.segredo, morteJogador: S.morteJogador,
+  faseConcluida: S.faseConcluida,
+};
+
+/** ganho do drone com tensão 0 e 1 */
+const DRONE_MIN = 0.03;
+const DRONE_MAX = 0.6;
+/** suavização do drone (constante de tempo, s) */
+const DRONE_SUAVE = 0.8;
+/** a tensão precisa mudar isto para reagendar o ganho */
+const DRONE_PASSO = 0.01;
+
+export class SomDaFase {
+  private readonly limitador = new LimitadorSons();
+  private ctx: AudioContext | null = null;
+  private ambiente: S.Laco | null = null;
+  private drone: S.Laco | null = null;
+  private alarme: S.Laco | null = null;
+  private tensaoAplicada = -1;
+  private descartado = false;
+
+  constructor(
+    private readonly mixer: Mixer,
+    private readonly fase: LevelDef,
+  ) {}
+
+  sincronizar(world: World, eventos: readonly SimEvent[], ouvinte: Ouvinte): void {
+    if (this.descartado) return;
+    const b = this.mixer.bancada;
+    const efeitos = this.mixer.efeitos;
+    const musica = this.mixer.musica;
+    if (!b || !efeitos || !musica || b.ctx.state === 'closed') return;
+    try {
+      if (this.ctx !== b.ctx) this.montarLacos(b, efeitos, musica);
+      const ctx = b.ctx;
+      this.seguirTensao(ctx, world.tensao);
+      this.seguirAlarme(b, efeitos, world.alarme);
+      // suspenso (pausa, aba oculta): nem ouvinte (automação acumulada) nem sons para tocar todos de uma vez depois
+      if (ctx.state !== 'running') return;
+      atualizarOuvinte(ctx, ouvinte);
+      this.limitador.novoQuadro(ctx.currentTime * 1000);
+      for (const e of eventos) this.tocarEvento(ctx, world, e, ouvinte);
+    } catch {
+      /* WebAudio falhou no meio: o jogo segue sem som */
+    }
+  }
+
+  dispose(): void {
+    if (this.descartado) return;
+    this.descartado = true;
+    const t = this.ctx && this.ctx.state !== 'closed' ? this.ctx.currentTime : 0;
+    for (const l of [this.ambiente, this.drone, this.alarme]) {
+      try {
+        l?.parar(t);
+      } catch {
+        /* contexto já fechado */
+      }
+    }
+    this.ambiente = this.drone = this.alarme = null;
+    this.ctx = null;
+  }
+
+  private montarLacos(b: S.Bancada, efeitos: GainNode, musica: GainNode): void {
+    this.ctx = b.ctx;
+    this.tensaoAplicada = -1;
+    if (this.fase.ambiente.somDeFundo === 'zumbido') {
+      this.ambiente = S.zumbido(b, efeitos, S.criarRuidoRosa(b.ctx));
+    }
+    this.drone = S.drone(b, musica);
+  }
+
+  private seguirTensao(ctx: AudioContext, tensao: number): void {
+    if (!this.drone) return;
+    const v = Math.min(1, Math.max(0, tensao));
+    if (Math.abs(v - this.tensaoAplicada) < DRONE_PASSO) return;
+    this.tensaoAplicada = v;
+    const g = this.drone.saida.gain;
+    g.cancelScheduledValues(ctx.currentTime);
+    g.setTargetAtTime(DRONE_MIN + (DRONE_MAX - DRONE_MIN) * v, ctx.currentTime, DRONE_SUAVE);
+  }
+
+  private seguirAlarme(b: S.Bancada, efeitos: GainNode, ligado: boolean): void {
+    if (ligado && !this.alarme) this.alarme = S.alarme(b, efeitos);
+    else if (!ligado && this.alarme) {
+      this.alarme.parar(b.ctx.currentTime);
+      this.alarme = null;
+    }
+  }
+
+  private tocarEvento(ctx: AudioContext, world: World, e: SimEvent, ouvinte: Ouvinte): void {
+    const p = somDoEvento(e, world);
+    if (!p) return;
+    let cadeia: AudioNode[] = [];
+    if (p.pos) {
+      // distância, limitador e só então a visibilidade (a mais cara)
+      const y = p.y ?? ouvinte.y;
+      if (!audivel(ouvinte, p.pos, y)) return;
+      if (!this.limitador.permitir(p.som)) return;
+      const abafado = ocluido(world.grid, ouvinte, p.pos, solidoDe(world), p.celulaPorta);
+      cadeia = criarCadeiaPosicional(ctx, p.pos.x, y, p.pos.z, abafado);
+    } else if (!this.limitador.permitir(p.som)) return;
+    this.mixer.tocar(SONS[p.som], cadeia);
+  }
+}

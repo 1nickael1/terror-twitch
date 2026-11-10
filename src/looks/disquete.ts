@@ -1,19 +1,22 @@
-import { Color, Fog } from 'three';
 import type { VisualStyle } from './types';
 
 export const DISQUETE: VisualStyle = {
   id: 'disquete',
-  key: '1',
   nome: 'Disquete 1994',
   frase: 'Pixels gordos e paleta curta, como se a Fundação rodasse num 486.',
   alturaInterna: 180,
   ampliacao: 'nearest',
-  aplicar({ scene, bank, lights }) {
-    bank.setKind('lambert');
-    bank.setNearest(true);
-    scene.fog = new Fog(0x140f0b, 3, 24);
-    scene.background = new Color(0x140f0b);
-    lights.apply({ ambient: 0.6, ambientColor: 0xb59a7a, fluorescent: 14, fluorescentColor: 0xfff0d0, flicker: 0.5, alarm: 30 });
+  // protótipo: Fog linear 3–24 m; a exponencial 0,065 tem a mesma metade de opacidade (~13 m)
+  cena: {
+    nevoa: { cor: 0x140f0b, densidade: 0.065 },
+    material: 'lambert',
+    texturasNearest: true,
+    ambiente: 5,
+    corAmbiente: 0xb59a7a,
+    luzes: 1.4,
+    lanterna: 0.35,
+    emissivo: 1,
+    infravermelho: 0,
   },
   fragmentShader: /* glsl */ `
 float bayer4(vec2 p) {

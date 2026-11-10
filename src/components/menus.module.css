@@ -1,0 +1,108 @@
+/* Telas sobrepostas (título, pausa, opções, morte, fim de fase, documento, créditos): papel de
+   documento interno sobre a cena escura. Fontes do sistema. */
+.tela {
+  --papel: #e8e4d8;
+  --apagado: #a9a596;
+  --ambar: #e0ac4a;
+  --linha: rgba(232, 228, 216, 0.22);
+  --fundo: rgba(6, 8, 8, 0.86);
+  position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center;
+  padding: 16px; color: var(--papel);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  overflow-y: auto;
+}
+.veu { background: rgba(0, 0, 0, 0.55); }
+.titulo { justify-content: flex-start; background: linear-gradient(90deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.55) 45%, rgba(0, 0, 0, 0.1) 100%); }
+
+.painel {
+  width: min(460px, 100%); max-height: calc(100vh - 32px); overflow-y: auto;
+  background: var(--fundo); border: 1px solid var(--linha); padding: 24px 24px 20px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+.painelLargo { width: min(640px, 100%); }
+.semMoldura { background: none; border: none; box-shadow: none; padding: 0 0 0 clamp(0px, 6vw, 72px); }
+
+.rotulo {
+  margin: 0 0 6px; font: 600 11px/1.4 ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--apagado);
+}
+.marca { margin: 0; font-size: clamp(40px, 7vw, 64px); font-weight: 800; letter-spacing: 0.02em; line-height: 1; }
+.sub {
+  display: inline-block; margin: 8px 0 28px; padding: 2px 8px; border: 1px solid var(--papel);
+  font: 600 12px/1.4 ui-monospace, Consolas, monospace; letter-spacing: 0.3em; text-transform: uppercase;
+}
+.h2 { margin: 0 0 16px; font-size: 22px; font-weight: 700; letter-spacing: 0.01em; }
+.texto { margin: 0 0 12px; font-size: 15px; line-height: 1.55; color: var(--papel); }
+.apagado { color: var(--apagado); }
+
+.lista { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.item {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px; width: 100%;
+  min-height: 40px; padding: 8px 12px; border: 1px solid transparent; border-left: 3px solid transparent;
+  background: transparent; color: var(--papel); font: inherit; font-size: 17px; text-align: left; cursor: pointer;
+}
+.item:hover { background: rgba(232, 228, 216, 0.08); }
+.item:focus-visible, .item:focus { outline: none; border-color: var(--linha); border-left-color: var(--ambar); background: rgba(224, 172, 74, 0.12); }
+.item[disabled] { color: var(--apagado); cursor: default; }
+.item small { font-size: 13px; color: var(--apagado); font-family: ui-monospace, Consolas, monospace; }
+.voltar { margin-top: 16px; }
+
+.botoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.botao {
+  min-height: 40px; padding: 8px 16px; border: 1px solid var(--linha); background: rgba(232, 228, 216, 0.06);
+  color: var(--papel); font: inherit; font-size: 15px; cursor: pointer;
+}
+.botao:hover { background: rgba(232, 228, 216, 0.14); }
+.botao:focus-visible, .botao:focus { outline: 2px solid var(--ambar); outline-offset: 2px; }
+.primario { border-color: var(--ambar); }
+
+/* opções */
+.campo { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; margin: 0 0 14px; }
+.campo label, .campo .nome { font-size: 15px; }
+.campo output { font: 13px ui-monospace, Consolas, monospace; color: var(--apagado); min-width: 4ch; text-align: right; }
+.campo input[type='range'] { grid-column: 1 / -1; width: 100%; accent-color: var(--ambar); }
+.campo input[type='range']:focus-visible, .caixa input:focus-visible { outline: 2px solid var(--ambar); outline-offset: 3px; }
+.caixa { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 15px; cursor: pointer; }
+.caixa input { width: 18px; height: 18px; accent-color: var(--ambar); }
+.grupo { margin: 0 0 16px; padding: 0; border: 0; }
+.grupo legend { padding: 0; margin: 0 0 8px; font-size: 15px; }
+.escolhas { display: flex; flex-direction: column; gap: 4px; }
+.escolhasLinha { flex-direction: row; flex-wrap: wrap; }
+.escolha {
+  padding: 8px 12px; border: 1px solid var(--linha); background: transparent; color: var(--papel);
+  font: inherit; font-size: 14px; text-align: left; cursor: pointer;
+}
+.escolha small { display: block; margin-top: 2px; color: var(--apagado); font-size: 12px; line-height: 1.4; }
+.escolha[aria-pressed='true'] { border-color: var(--ambar); background: rgba(224, 172, 74, 0.14); }
+.escolha:focus-visible, .escolha:focus { outline: 2px solid var(--ambar); outline-offset: 1px; }
+
+/* fim de fase */
+.tabela { width: 100%; margin: 0 0 4px; border-collapse: collapse; font-size: 15px; }
+.tabela th { padding: 6px 0; font-weight: 400; color: var(--apagado); text-align: left; }
+.tabela td { padding: 6px 0; text-align: right; font-family: ui-monospace, Consolas, monospace; font-size: 16px; }
+.tabela tr + tr { border-top: 1px solid var(--linha); }
+
+/* documento */
+.documento { width: min(620px, 100%); background: #e9e4d4; color: #1d1c18; border: none; }
+.documento .rotulo { color: #5d5a50; }
+.documento .h2 { color: #1d1c18; font-family: ui-serif, Georgia, 'Times New Roman', serif; }
+.corpo { white-space: pre-wrap; font: 15px/1.6 ui-monospace, Consolas, 'Courier New', monospace; margin: 0 0 8px; }
+.documento .botao { color: #1d1c18; border-color: #8a8577; background: rgba(0, 0, 0, 0.04); }
+.documento .botao:focus-visible, .documento .botao:focus { outline-color: #8a5a00; }
+.dica { margin: 12px 0 0; font-size: 12px; color: #5d5a50; }
+
+/* morte */
+.morte { background: radial-gradient(ellipse at center, rgba(60, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.88) 70%); text-align: center; }
+.morte .marca { font-size: clamp(34px, 6vw, 52px); color: #f0d6d0; }
+.morte .texto { color: #c9b8b2; margin-top: 12px; }
+
+.link { color: var(--ambar); }
+.link:focus-visible { outline: 2px solid var(--ambar); outline-offset: 2px; }
+.creditos dt { margin-top: 10px; font-weight: 700; }
+.creditos dd { margin: 2px 0 0; color: var(--apagado); font-size: 14px; }
+
+@media (max-width: 600px) {
+  .painel { padding: 18px 16px 16px; }
+  .semMoldura { padding-left: 0; }
+  .titulo { justify-content: center; background: rgba(0, 0, 0, 0.7); }
+}

@@ -1,18 +1,20 @@
-import { Color, FogExp2 } from 'three';
 import type { VisualStyle } from './types';
 
 export const FITA: VisualStyle = {
   id: 'fita',
-  key: '2',
   nome: 'Fita Encontrada',
   frase: 'Alguém gravou isso. A fita foi achada no Sítio, sem o dono.',
   alturaInterna: 360,
   ampliacao: 'linear',
-  aplicar({ scene, bank, lights }) {
-    bank.setKind('standard');
-    scene.fog = new FogExp2(0x0d0d0f, 0.06);
-    scene.background = new Color(0x0d0d0f);
-    lights.apply({ ambient: 0.12, fluorescent: 8, fluorescentColor: 0xe8f0d8, flicker: 0.8, alarm: 25, flashlight: 25, flashlightAngle: 0.7 });
+  cena: {
+    nevoa: { cor: 0x0d0d0f, densidade: 0.06 },
+    material: 'standard',
+    texturasNearest: false,
+    ambiente: 1,
+    luzes: 0.8,
+    lanterna: 0.18,
+    emissivo: 1,
+    infravermelho: 0,
   },
   fragmentShader: /* glsl */ `
 void main() {

@@ -11,6 +11,10 @@ describe('internalSize', () => {
   it('nunca amplia acima da tela', () => {
     expect(internalSize(800, 600, 1000)).toEqual({ w: 800, h: 600 });
   });
+  it('a escala de qualidade multiplica a altura interna (e a nativa)', () => {
+    expect(internalSize(1920, 1080, 180, 0.5)).toEqual({ w: 160, h: 90 });
+    expect(internalSize(1920, 1080, null, 0.5)).toEqual({ w: 960, h: 540 });
+  });
   it('nunca chega a zero', () => {
     expect(internalSize(1, 4000, 180).w).toBeGreaterThanOrEqual(1);
   });
