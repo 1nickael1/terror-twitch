@@ -9,10 +9,8 @@ import { ARMAS } from '../sim/balance';
 import type { ArmaId, DocumentoDef, NivelCartao } from '../sim/fase';
 import type { Comando, Tela } from '../sim/tela';
 import type { Stats } from '../sim/world';
-import { barraDoChefe, ladoDoDano, textoDoEvento, type BarraChefe, type LadoDano } from './formato';
+import { barraDoChefe, dicaDoHud, duracaoMensagem, ladoDoDano, textoDoEvento, type BarraChefe, type LadoDano } from './formato';
 
-/** a mensagem temporária do HUD some depois disto */
-const MENSAGEM_MS = 4000;
 /** a gravação das opções espera os sliders pararem por este tempo */
 const GRAVAR_OPCOES_MS = 300;
 
@@ -28,6 +26,8 @@ export interface HudSnapshot {
   travaRecusada: boolean;
   /** barra do chefe: só com ele acordado (vida 0..1 em passos de 1%) */
   chefe: BarraChefe | null;
+  /** o que o botão de usar (E) faria agora, sob a mira; muda só quando o texto muda */
+  dicaUso: string | null;
 }
 
 const INICIAL: HudSnapshot = Object.freeze({
@@ -36,7 +36,7 @@ const INICIAL: HudSnapshot = Object.freeze({
   mensagem: null, documento: null, danoEm: 0, danoLado: null,
   stats: null, totais: null,
   opcoes: OPCOES_PADRAO, progresso: { desbloqueadas: 1, melhorTempo: {} }, filtro: OPCOES_PADRAO.filtro,
-  travaRecusada: false, chefe: null,
+  travaRecusada: false, chefe: null, dicaUso: null,
 }) as HudSnapshot;
 
 /** Armazenamento em memória: vale só nesta aba (localStorage bloqueado ou indisponível). */
@@ -70,6 +70,8 @@ export class EngineStore {
   private armazenamento: Armazenamento | null = null;
   private snap: HudSnapshot = INICIAL;
   private mensagemEm = 0;
+  /** ms que a mensagem atual fica na tela (`duracaoMensagem`) */
+  private mensagemMs = 0;
   private timerOpcoes: ReturnType<typeof setTimeout> | null = null;
   private readonly listeners = new Set<() => void>();
 
@@ -156,10 +158,10 @@ export class EngineStore {
     if (ev.type === 'travado') this.set({ travado: ev.travado });
     else if (ev.type === 'filtro') this.set({ filtro: ev.id });
     // troca de fase: a barra do chefe some (a fase nova recria a dela, se tiver chefe acordado)
-    else if (ev.type === 'fase') this.set({ mensagem: null, danoEm: 0, danoLado: null, chefe: null });
+    else if (ev.type === 'fase') this.set({ mensagem: null, danoEm: 0, danoLado: null, chefe: null, dicaUso: null });
     else if (ev.type === 'eventos') this.lerEventos(ev.eventos);
     else if (ev.type === 'quadro') {
-      if (this.snap.mensagem !== null && performance.now() - this.mensagemEm > MENSAGEM_MS) this.set({ mensagem: null });
+      if (this.snap.mensagem !== null && performance.now() - this.mensagemEm > this.mensagemMs) this.set({ mensagem: null });
       this.lerWorld();
     }
   };
@@ -171,6 +173,7 @@ export class EngineStore {
       const texto = textoDoEvento(e, w.fase.pickups);
       if (texto !== null) {
         this.mensagemEm = performance.now();
+        this.mensagemMs = duracaoMensagem(texto);
         this.set({ mensagem: texto });
       }
       if (e.tipo === 'dano_jogador') {
@@ -187,6 +190,9 @@ export class EngineStore {
       tela: g.estado.tela, fase: g.estado.fase, documento: g.documento, progresso: g.progresso,
       stats: r?.stats ?? null, totais: r?.totais ?? null, travaRecusada: g.travaRecusada,
     });
+    // a dica some na hora em que a tela sai do jogo (sem esperar o próximo quadro)
+    const w = this.engine?.world;
+    this.set({ dicaUso: w ? dicaDoHud(g.estado.tela, w) : null });
   }
 
   private lerWorld(): void {
@@ -203,6 +209,8 @@ export class EngineStore {
       armas: mesmaLista(s.armas, j.armas) ? s.armas : [...j.armas],
       cartoes: mesmaLista(s.cartoes, j.cartoes) ? s.cartoes : [...j.cartoes],
       chefe: chefe && s.chefe && chefe.nome === s.chefe.nome && chefe.vida === s.chefe.vida ? s.chefe : chefe,
+      // string: o `set` compara por valor
+      dicaUso: dicaDoHud(s.tela, w),
     });
   }
 

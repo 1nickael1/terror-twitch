@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { avancarFechamento, brilhoAviso, DESCIDA, SUBIDA } from '../../src/engine/view/comportasLogica';
+import { avancarFechamento, brilhoAviso, COR_INDICADOR, DESCIDA, estadoIndicador, SUBIDA } from '../../src/engine/view/comportasLogica';
 
 describe('avancarFechamento', () => {
   it('desce em 0,15 s quando a comporta está ativa', () => {
@@ -50,5 +50,18 @@ describe('brilhoAviso', () => {
     }
     expect(maiorSalto).toBeLessThan(0.05);
     expect(menor).toBeGreaterThan(0.2);
+  });
+});
+
+describe('estadoIndicador (luz do terminal da comporta)', () => {
+  it('branco-azulado com a comporta pronta, âmbar fixo enquanto recarrega (sem piscar)', () => {
+    expect(estadoIndicador(0)).toBe('pronta');
+    expect(estadoIndicador(-0.01)).toBe('pronta');
+    expect(estadoIndicador(6.9)).toBe('recarregando');
+    expect(estadoIndicador(0.001)).toBe('recarregando');
+    expect(COR_INDICADOR.pronta).not.toBe(COR_INDICADOR.recarregando);
+    // pronta: branco-azulado (a tela do terminal é verde); recarga: âmbar
+    expect(COR_INDICADOR.pronta).toBe(0xd6ecff);
+    expect(COR_INDICADOR.recarregando).toBe(0xffa224);
   });
 });

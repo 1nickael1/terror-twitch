@@ -3,7 +3,7 @@ import { confirmarMorteChefe } from './ai/chefe096';
 import { ferirJogador } from './ai/comum';
 import { tipoDe } from './ai/tipos';
 import type { SimEvent } from './eventos';
-import type { PerigoDef } from './fase';
+import type { LevelDef, PerigoDef } from './fase';
 import { centro, coordDe, type Vec2 } from './grid';
 import { ferirInimigo } from './weapons';
 import type { EstadoPerigo, World } from './world';
@@ -65,6 +65,15 @@ export function avancarPerigos(w: World, dt: number): SimEvent[] {
     if (e.ativo === 0) eventos.push({ tipo: 'perigo', id: e.id, estado: 'abre' });
   }
   return eventos;
+}
+
+/** Perigo acionado pelo terminal (gatilho `terminal` com ação `perigo`), ou null. */
+export function perigoDoTerminal(fase: LevelDef, terminalId: string): string | null {
+  for (const g of fase.gatilhos) {
+    if (g.quando.tipo !== 'terminal' || g.quando.id !== terminalId) continue;
+    for (const a of g.faz) if (a.acao === 'perigo') return a.id;
+  }
+  return null;
 }
 
 /** A célula está fechada por um perigo ativo. */

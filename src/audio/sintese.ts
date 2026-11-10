@@ -339,8 +339,11 @@ export const projetil: Sintese = (b, d, t) => {
 
 // ---------- laços ----------
 
-/** Laço contínuo: `parar(t)` faz uma rampa curta e desliga tudo. */
-export interface Laco { saida: GainNode; parar: (t: number) => void }
+/** Laço contínuo: `parar(t, rampa)` desce o ganho em `rampa` s (padrão 0,08 s) e desliga tudo. */
+export interface Laco { saida: GainNode; parar: (t: number, rampa?: number) => void }
+
+/** rampa padrão de `Laco.parar` (s): corte rápido sem estalo */
+export const RAMPA_PARAR = 0.08;
 
 /** subida do laço ao entrar (constante de tempo, s): sem degrau */
 const ENTRADA_LACO = 0.05;
@@ -354,15 +357,15 @@ export function laco(ctx: AudioContext, destino: AudioNode, fontes: AudioSchedul
   let parado = false;
   return {
     saida,
-    parar: (t) => {
+    parar: (t, rampa = RAMPA_PARAR) => {
       if (parado) return;
       parado = true;
       saida.gain.cancelScheduledValues(t);
       saida.gain.setValueAtTime(saida.gain.value, t);
-      saida.gain.linearRampToValueAtTime(0, t + 0.08);
+      saida.gain.linearRampToValueAtTime(0, t + rampa);
       for (const f of fontes) {
         try {
-          f.stop(t + 0.1);
+          f.stop(t + rampa + 0.02);
         } catch {
           /* já parada */
         }

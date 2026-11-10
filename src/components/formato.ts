@@ -1,9 +1,11 @@
 // Textos e contas puras da interface: tempo mm:ss, nome de pickup, mensagem do HUD a partir de um
-// evento da simulação, o lado de onde veio o dano e a barra de vida do chefe.
+// evento da simulação, o lado de onde veio o dano, a barra de vida do chefe e a dica do botão de usar.
 import { tipoDe } from '../sim/ai/tipos';
 import { ARMAS } from '../sim/balance';
+import { alvoDeUso, type AlvoDeUso } from '../sim/doors';
 import type { SimEvent } from '../sim/eventos';
 import type { PickupDef, TipoMunicao } from '../sim/fase';
+import type { Tela } from '../sim/tela';
 import type { Vec2 } from '../sim/grid';
 import type { World } from '../sim/world';
 
@@ -78,4 +80,42 @@ export function barraDoChefe(w: World): BarraChefe | null {
   if (!i || i.modo === 'morto') return null;
   const fracao = Math.max(0, Math.min(1, i.vida / tipoDe(i.tipo).vida));
   return { nome: def.nome, vida: Math.round(fracao * 100) / 100 };
+}
+
+/** Aviso discreto sob a mira: o que o botão de usar (E) faria agora, ou `null` sem nada para mostrar. */
+export function dicaDeUso(alvo: AlvoDeUso | null): string | null {
+  if (!alvo) return null;
+  switch (alvo.tipo) {
+    case 'porta':
+      switch (alvo.estado) {
+        case 'fechada': return '[E] Abrir porta';
+        case 'aberta': return alvo.vaoOcupado ? null : '[E] Fechar porta';   // no vão, o botão não fecha
+        case 'trancada':
+          if (alvo.exige === null) return 'Trancada';
+          return alvo.temCartao ? `[E] Destrancar (cartão nível ${alvo.exige})` : `Trancada · requer cartão nível ${alvo.exige}`;
+        default: return null;   // abrindo ou fechando: o botão não faz nada
+      }
+    case 'terminal': {
+      const p = alvo.perigo;
+      if (!p) return `[E] ${alvo.rotulo}`;
+      return p.pronto ? `[E] ${alvo.rotulo} · pronta` : `${alvo.rotulo} · recarregando ${Math.ceil(p.recarga)} s`;
+    }
+    case 'documento':
+      return `[E] Ler: ${alvo.titulo}`;
+  }
+}
+
+/** Dica do HUD: só na tela de jogo com o mundo jogando (nada sob o véu da pausa, documento, morte ou fim). */
+export function dicaDoHud(tela: Tela, w: World): string | null {
+  if (tela !== 'jogando' || w.estado !== 'jogando') return null;
+  return dicaDeUso(alvoDeUso(w));
+}
+
+/** ms mínimos, base e por caractere, e teto da mensagem temporária do HUD */
+export const MENSAGEM_TEMPO = { minimoMs: 4000, baseMs: 1200, porCaractereMs: 55, maximoMs: 10000 } as const;
+
+/** Quanto tempo (ms) a mensagem fica na tela: proporcional ao texto, entre 4 e 10 s. */
+export function duracaoMensagem(texto: string): number {
+  const t = MENSAGEM_TEMPO;
+  return Math.min(t.maximoMs, Math.max(t.minimoMs, t.baseMs + t.porCaractereMs * texto.length));
 }

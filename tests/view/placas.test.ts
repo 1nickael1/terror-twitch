@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ATLAS_MAX, layoutAtlas, linhasDaPlaca, normalParede, origemNoAtlas, uvNoAtlas } from '../../src/engine/view/placasLogica';
+import { ATLAS_MAX, ladrilhosDasPlacas, layoutAtlas, linhasDaPlaca, normalParede, origemNoAtlas, uvNoAtlas } from '../../src/engine/view/placasLogica';
 
 describe('linhasDaPlaca', () => {
   it('caixa alta, quebra por palavra até o limite de caracteres', () => {
@@ -66,5 +66,17 @@ describe('atlas das placas', () => {
     expect(v0).toBeCloseTo(1 - 1 / 8, 3);
     expect(u1).toBeLessThan(uvNoAtlas(1, l)[0]);
     expect(origemNoAtlas(5, l)).toEqual({ x: 512, y: 256 });
+  });
+});
+
+describe('ladrilhosDasPlacas', () => {
+  it('placas com o mesmo texto dividem um ladrilho do atlas, na ordem da primeira aparição', () => {
+    expect(ladrilhosDasPlacas(['TRIAGEM', 'Cabine', 'triagem', 'COMPORTA SUL', 'Cabine'])).toEqual({
+      unicos: ['TRIAGEM', 'Cabine', 'COMPORTA SUL'],
+      indice: [0, 1, 0, 2, 1],
+    });
+  });
+  it('sem placas, nada', () => {
+    expect(ladrilhosDasPlacas([])).toEqual({ unicos: [], indice: [] });
   });
 });

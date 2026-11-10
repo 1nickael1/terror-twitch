@@ -13,9 +13,14 @@ export const MENSAGENS = {
   liberado: 'Travamento liberado. Acesso ao isolamento desbloqueado.',
   isolamento: 'ISOLAMENTO L-2-07. Não olhe para o ocupante.',
   desperta: 'Ocupante em movimento. Feche as portas atrás de você e siga para a triagem.',
-  triagem: 'Triagem. As comportas são acionadas pelos terminais da cabine de controle.',
-  fim: 'Ocupante imobilizado. Elevador de serviço liberado.',
+  triagem: 'Triagem: comportas de esmagamento nos dois vãos da divisória. Suba à cabine, espere o ocupante entrar num vão e acione o terminal daquele vão (E).',
+  fim: 'Ocupante imobilizado. Alarme encerrado. Elevador de serviço liberado.',
 } as const;
+
+/** Mensagem da cabine com a recarga real das comportas (s, vírgula decimal). */
+export function mensagemCabine(recargaS: number): string {
+  return `Cabine de controle. Terminal norte fecha o vão norte; terminal sul, o vão sul. Cada comporta recarrega em ${String(recargaS).replace('.', ',')} s.`;
+}
 
 export const DOCUMENTOS: DocumentoDef[] = [
   {

@@ -4,7 +4,7 @@
 import { criarCadeiaPosicional } from './posicional';
 import { POSICIONAL } from './regras';
 import { lamentoInerte } from './sinteseChefe';
-import type { Bancada, Laco } from './sintese';
+import { RAMPA_PARAR, type Bancada, type Laco } from './sintese';
 
 /** corte do passa-baixa sem oclusão */
 const ABERTO = 16000;
@@ -53,11 +53,12 @@ export class LamentoChefe {
     }
   }
 
-  parar(): void {
+  /** Para com uma rampa de `rampa` s (padrão: a do laço). */
+  parar(rampa = RAMPA_PARAR): void {
     if (this.parado) return;
     this.parado = true;
     const ctx = this.b.ctx;
-    this.laco.parar(ctx.state === 'closed' ? 0 : ctx.currentTime);
+    this.laco.parar(ctx.state === 'closed' ? 0 : ctx.currentTime, rampa);
     // o laço solta a própria saída; a cadeia sai do barramento depois da rampa
     setTimeout(() => {
       for (const n of [this.filtro, this.ganho, this.panner]) {
@@ -67,6 +68,6 @@ export class LamentoChefe {
           /* já desligado */
         }
       }
-    }, 300);
+    }, 300 + rampa * 1000);
   }
 }

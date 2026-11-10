@@ -96,6 +96,18 @@ export function lamentoDoChefe(w: World): { pos: Vec2; y: number } | null {
   return c ? { pos: c.pos, y: c.y - 0.5 } : null;
 }
 
+/** Laços contínuos da fase que devem estar tocando. */
+export interface LacosDaFase { ambiente: boolean; drone: boolean; alarme: boolean; lamento: boolean }
+
+/**
+ * Quais laços tocam dado o estado do mundo. Fase concluída: nenhum (a tela de fim fica só com o
+ * som de conclusão, que é avulso). Morte: seguem (a tela dura 2 s e volta ao checkpoint).
+ */
+export function lacosDaFase(w: World): LacosDaFase {
+  if (w.estado === 'concluida') return { ambiente: false, drone: false, alarme: false, lamento: false };
+  return { ambiente: true, drone: true, alarme: w.alarme, lamento: lamentoDoChefe(w) !== null };
+}
+
 /** O som que o evento pede, ou `null` para eventos sem som. Só lê o mundo. */
 export function somDoEvento(e: SimEvent, w: World): PedidoSom | null {
   switch (e.tipo) {

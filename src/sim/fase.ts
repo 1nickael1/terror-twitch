@@ -37,7 +37,8 @@ export interface SegredoDef { id: string; area: Area }
 export interface LuzDef { em: Coord; cor: number; intensidade: number; grupo?: string; pisca?: number; altura?: number }
 export type TipoProp = 'mesa' | 'cadeira' | 'armario' | 'caixa' | 'maca' | 'cama' | 'placa' | 'lixeira';
 export interface PropDef { em: Coord; tipo: TipoProp; yaw?: number; texto?: string; parede?: 'n' | 's' | 'l' | 'o' }
-export interface DecalDef { em: Coord; tipo: 'sangue' | 'queimado' | 'marca'; parede?: 'n' | 's' | 'l' | 'o' }
+/** `faixa`: listras diagonais de perigo, alinhadas à célula e do tamanho dela (sem giro nem escala aleatória). */
+export interface DecalDef { em: Coord; tipo: 'sangue' | 'queimado' | 'marca' | 'faixa'; parede?: 'n' | 's' | 'l' | 'o' }
 export interface AmbienteDef { nevoa: number; corNevoa: number; ambiente: number; somDeFundo: string; musica: string }
 export interface PerigoDef {
   id: string;

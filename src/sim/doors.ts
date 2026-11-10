@@ -1,9 +1,10 @@
 // Portas (abrir, fechar, trancar, cartões) e o botão de usar. Lógica pura.
 import { PORTA } from './balance';
 import type { SimEvent } from './eventos';
+import type { DocumentoDef, NivelCartao, TerminalDef } from './fase';
 import { centro, coordDe, type Solido, type Vec2 } from './grid';
 import { resolverOnde } from './onde';
-import { celulaFechada } from './perigos';
+import { celulaFechada, perigoDoTerminal } from './perigos';
 import { frente } from './player';
 import type { Porta, World } from './world';
 
@@ -61,6 +62,11 @@ export function comandarPorta(w: World, id: string, estado: 'abrir' | 'fechar' |
   }
 }
 
+/** A porta exige cartão e o jogador tem um do nível ou acima. */
+function temCartao(w: World, p: Porta): boolean {
+  return p.exige !== null && w.jogador.cartoes.some((c) => c >= p.exige!);
+}
+
 /** Porta à frente do jogador apertando usar. */
 function usarPorta(w: World, p: Porta): SimEvent[] {
   switch (p.estado) {
@@ -69,7 +75,7 @@ function usarPorta(w: World, p: Porta): SimEvent[] {
     case 'aberta':
       return alguemNoVao(w, p) ? [] : mudar(p, 'fechando');
     case 'trancada':
-      if (p.exige !== null && w.jogador.cartoes.some((c) => c >= p.exige!)) return mudar(p, 'abrindo');
+      if (temCartao(w, p)) return mudar(p, 'abrindo');
       return [{ tipo: 'porta_negada', id: p.id, exige: p.exige }];
     case 'abrindo':
     case 'fechando':
@@ -105,15 +111,62 @@ function maisProximo<T>(w: World, itens: readonly T[], pos: (t: T) => Vec2): T |
   return melhor;
 }
 
+type Escolha =
+  | { tipo: 'porta'; porta: Porta }
+  | { tipo: 'terminal'; terminal: TerminalDef }
+  | { tipo: 'documento'; documento: DocumentoDef };
+
+/** O alvo do botão de usar: porta, depois terminal, depois documento (o mais próximo de cada, ao alcance). */
+function escolherAlvo(w: World): Escolha | null {
+  const porta = maisProximo(w, w.portas, (p) => centro(p.coord));
+  if (porta) return { tipo: 'porta', porta };
+  const terminal = maisProximo(w, w.fase.terminais, (t) => centro(resolverOnde(w.grid, t.em)));
+  if (terminal) return { tipo: 'terminal', terminal };
+  const documento = maisProximo(w, w.fase.documentos, (d) => centro(resolverOnde(w.grid, d.em)));
+  if (documento) return { tipo: 'documento', documento };
+  return null;
+}
+
 /** Botão de usar: procura porta, depois terminal, depois documento. Sem alvo, nada. */
 export function usar(w: World): SimEvent[] {
-  const porta = maisProximo(w, w.portas, (p) => centro(p.coord));
-  if (porta) return usarPorta(w, porta);
-  const terminal = maisProximo(w, w.fase.terminais, (t) => centro(resolverOnde(w.grid, t.em)));
-  if (terminal) return [{ tipo: 'terminal', id: terminal.id }];
-  const documento = maisProximo(w, w.fase.documentos, (d) => centro(resolverOnde(w.grid, d.em)));
-  if (documento) return [{ tipo: 'documento', id: documento.id }];
-  return [];
+  const alvo = escolherAlvo(w);
+  if (!alvo) return [];
+  switch (alvo.tipo) {
+    case 'porta': return usarPorta(w, alvo.porta);
+    case 'terminal': return [{ tipo: 'terminal', id: alvo.terminal.id }];
+    case 'documento': return [{ tipo: 'documento', id: alvo.documento.id }];
+  }
+}
+
+/** O que o botão de usar acionaria agora (para a dica do HUD). Não muda nada no mundo. */
+export type AlvoDeUso =
+  /** `vaoOcupado`: alguém na célula da porta (aberta, o botão não fecha) */
+  | { tipo: 'porta'; id: string; estado: Porta['estado']; exige: NivelCartao | null; temCartao: boolean; vaoOcupado: boolean }
+  | { tipo: 'terminal'; id: string; rotulo: string; perigo: { id: string; pronto: boolean; recarga: number } | null }
+  | { tipo: 'documento'; id: string; titulo: string };
+
+export function alvoDeUso(w: World): AlvoDeUso | null {
+  const alvo = escolherAlvo(w);
+  if (!alvo) return null;
+  switch (alvo.tipo) {
+    case 'porta': {
+      const p = alvo.porta;
+      return {
+        tipo: 'porta', id: p.id, estado: p.estado, exige: p.exige, temCartao: temCartao(w, p), vaoOcupado: alguemNoVao(w, p),
+      };
+    }
+    case 'terminal': {
+      const t = alvo.terminal;
+      const idPerigo = perigoDoTerminal(w.fase, t.id);
+      const e = idPerigo === null ? undefined : w.perigos.find((x) => x.id === idPerigo);
+      return {
+        tipo: 'terminal', id: t.id, rotulo: t.rotulo,
+        perigo: e ? { id: e.id, pronto: e.recarga <= 0, recarga: e.recarga } : null,
+      };
+    }
+    case 'documento':
+      return { tipo: 'documento', id: alvo.documento.id, titulo: alvo.documento.titulo };
+  }
 }
 
 /**

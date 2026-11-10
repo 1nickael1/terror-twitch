@@ -80,3 +80,23 @@ export function uvNoAtlas(i: number, l: LayoutAtlas): [number, number, number, n
   const mv = 0.5 / l.altTotal;
   return [x / l.largTotal + mu, 1 - (y + l.alt) / l.altTotal + mv, (x + l.larg) / l.largTotal - mu, 1 - y / l.altTotal - mv];
 }
+
+/**
+ * Um ladrilho por texto distinto (comparado em caixa alta, como a placa é desenhada): `unicos` na
+ * ordem da primeira aparição e `indice[i]` = ladrilho da placa `i`. Placas repetidas não gastam atlas.
+ */
+export function ladrilhosDasPlacas(textos: readonly string[]): { unicos: string[]; indice: number[] } {
+  const unicos: string[] = [];
+  const porChave = new Map<string, number>();
+  const indice = textos.map((t) => {
+    const chave = t.toUpperCase();
+    let i = porChave.get(chave);
+    if (i === undefined) {
+      i = unicos.length;
+      unicos.push(t);
+      porChave.set(chave, i);
+    }
+    return i;
+  });
+  return { unicos, indice };
+}

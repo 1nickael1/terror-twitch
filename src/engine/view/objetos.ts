@@ -15,7 +15,7 @@ function frenteAndavel(g: Grid, c: Coord): { dc: number; dr: number } | null {
  * Posiciona peças modeladas olhando para +z: na própria célula (andável) ou presas à face da
  * parede que dá para a vizinha andável. Devolve a matriz e a altura do piso de referência.
  */
-function colocacao(g: Grid, c: Coord): { m: Matrix4; piso: number; naParede: boolean } {
+export function colocacao(g: Grid, c: Coord): { m: Matrix4; piso: number; naParede: boolean } {
   const cel = celula(g, c[0], c[1]);
   const d = frenteAndavel(g, c) ?? { dc: 0, dr: 1 };
   const yaw = Math.atan2(d.dc, d.dr);

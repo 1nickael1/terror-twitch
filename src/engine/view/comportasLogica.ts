@@ -1,4 +1,4 @@
-// Contas puras da view das comportas: quanto o painel desceu e o brilho da luz de aviso.
+// Contas puras da view das comportas: quanto o painel desceu, o brilho da luz de aviso e a luz do terminal.
 
 /** s para o painel descer do teto até o chão */
 export const DESCIDA = 0.15;
@@ -22,4 +22,13 @@ export function brilhoAviso(t: number, recarga: number, reduzirFlashes: boolean)
   const s = Math.sin(t * 2 * Math.PI * PISCA_HZ);
   if (reduzirFlashes) return 0.6 + 0.25 * s;
   return s > 0 ? 1 : 0.12;
+}
+
+/** Luz do terminal que aciona a comporta: branco-azulado pronta (contrasta com a tela verde), âmbar enquanto recarrega (fixa, nunca pisca). */
+export type EstadoIndicador = 'pronta' | 'recarregando';
+
+export const COR_INDICADOR: Readonly<Record<EstadoIndicador, number>> = { pronta: 0xd6ecff, recarregando: 0xffa224 };
+
+export function estadoIndicador(recarga: number): EstadoIndicador {
+  return recarga > 0 ? 'recarregando' : 'pronta';
 }

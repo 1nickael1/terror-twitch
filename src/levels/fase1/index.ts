@@ -4,7 +4,7 @@
 import type { LevelDef, PerigoDef } from '../../sim/fase';
 import { DECALS, LUZES, PROPS } from './cenario';
 import { LEGENDA, PLANTA } from './planta';
-import { DOCUMENTOS, MENSAGENS } from './textos';
+import { DOCUMENTOS, MENSAGENS, mensagemCabine } from './textos';
 
 const LESTE = -Math.PI / 2;   // frente = (+1, 0)
 const OESTE = Math.PI / 2;    // frente = (-1, 0)
@@ -140,6 +140,7 @@ export const fase1: LevelDef = {
       ],
     },
     { id: 'triagem', quando: { tipo: 'area', area: [14, 36, 3, 2] }, faz: [{ acao: 'mensagem', texto: MENSAGENS.triagem }] },
+    { id: 'cabine', quando: { tipo: 'area', area: [1, 29, 4, 5] }, faz: [{ acao: 'mensagem', texto: mensagemCabine(COMPORTAS[0].recarga) }] },
     { id: 'aciona-comporta-a', quando: { tipo: 'terminal', id: 'terminal-a' }, faz: [{ acao: 'perigo', id: 'comporta-a' }], umaVez: false },
     { id: 'aciona-comporta-b', quando: { tipo: 'terminal', id: 'terminal-b' }, faz: [{ acao: 'perigo', id: 'comporta-b' }], umaVez: false },
     {
@@ -147,13 +148,14 @@ export const fase1: LevelDef = {
       quando: { tipo: 'chefe_morto' },
       faz: [
         { acao: 'porta', id: 'triagem-saida', estado: 'abrir' },
+        { acao: 'alarme', ligado: false },
         { acao: 'mensagem', texto: MENSAGENS.fim },
       ],
     },
   ],
   terminais: [
-    { id: 'terminal-a', em: 't', rotulo: 'Comporta A (vão norte)' },
-    { id: 'terminal-b', em: 'u', rotulo: 'Comporta B (vão sul)' },
+    { id: 'terminal-a', em: 't', rotulo: 'Comporta norte' },
+    { id: 'terminal-b', em: 'u', rotulo: 'Comporta sul' },
   ],
   documentos: DOCUMENTOS,
   segredos: [

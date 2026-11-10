@@ -15,6 +15,13 @@
   position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px;
   background: #fff; border-radius: 50%; opacity: 0.8; mix-blend-mode: difference;
 }
+/* dica do botão de usar: logo abaixo da mira, sem cobri-la */
+.dicaUso {
+  position: absolute; left: 50%; top: calc(50% + 26px); transform: translateX(-50%); margin: 0;
+  max-width: calc(100% - 32px); padding: 2px 8px; background: rgba(0, 0, 0, 0.45); border-radius: 2px;
+  font: 500 13px/1.3 ui-monospace, Consolas, monospace; letter-spacing: 0.04em; color: var(--papel);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.9;
+}
 .status { position: absolute; left: 24px; bottom: 20px; display: flex; gap: 28px; align-items: flex-end; }
 .medidor { display: grid; grid-template-columns: auto; gap: 2px; min-width: 120px; }
 .medidorNome { font: 600 11px/1 ui-monospace, Consolas, monospace; letter-spacing: 0.2em; text-transform: uppercase; color: var(--apagado); }

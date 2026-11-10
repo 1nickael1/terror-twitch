@@ -146,3 +146,32 @@ export function texturaFuro(): CanvasTexture {
     g.fill();
   });
 }
+
+/**
+ * Faixa de perigo do chão: listras diagonais âmbar e pretas, gastas. As listras têm período que
+ * divide o lado, então células vizinhas emendam sem degrau.
+ */
+export function texturaFaixa(): CanvasTexture {
+  return canvas(128, 59, (g, s, r) => {
+    const periodo = s / 4;
+    g.fillStyle = 'rgba(20,18,14,0.92)';
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = 'rgba(214,160,38,0.95)';
+    // faixas a 45°: x + y entre k·p e k·p + p/2 (desenhadas além das bordas para cobrir os cantos)
+    for (let k = -4; k < 8; k++) {
+      const a = k * periodo;
+      g.beginPath();
+      g.moveTo(a, 0);
+      g.lineTo(a + periodo / 2, 0);
+      g.lineTo(a + periodo / 2 - s, s);
+      g.lineTo(a - s, s);
+      g.closePath();
+      g.fill();
+    }
+    // desgaste: pontos e riscos escuros por cima
+    for (let k = 0; k < 260; k++) {
+      g.fillStyle = `rgba(30,26,20,${0.15 + r() * 0.35})`;
+      g.fillRect(r() * s, r() * s, 1 + r() * 3, 1 + r() * 2);
+    }
+  });
+}

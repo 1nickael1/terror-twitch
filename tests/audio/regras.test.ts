@@ -1,7 +1,7 @@
 // tests/audio/regras.test.ts
 import { describe, expect, it } from 'vitest';
 import {
-  audivel, lamentoDoChefe, LimitadorSons, ocluido, RegistroVozes, SOM_DE_GATILHO, somDoEvento, type NomeSom,
+  audivel, lacosDaFase, lamentoDoChefe, LimitadorSons, ocluido, RegistroVozes, SOM_DE_GATILHO, somDoEvento, type NomeSom,
 } from '../../src/audio/regras';
 import { SONS_DE_EVENTO } from '../../src/sim/catalogo';
 import { solidoDe } from '../../src/sim/doors';
@@ -340,5 +340,31 @@ describe('lamentoDoChefe', () => {
 
   it('sem chefe, nada', () => {
     expect(lamentoDoChefe(mundo())).toBeNull();
+  });
+});
+
+describe('lacosDaFase (quais laços da fase tocam dado o estado)', () => {
+  const PLANTA_L = ['#######', '#P....#', '#######'].join('\n');
+
+  it('em jogo: ambiente e drone sempre; alarme segue world.alarme; lamento com o chefe inerte', () => {
+    const w = criarWorld(faseComChefe(PLANTA_L, { em: [5, 1] }));
+    expect(lacosDaFase(w)).toEqual({ ambiente: true, drone: true, alarme: false, lamento: true });
+    w.alarme = true;
+    if (w.chefe) w.chefe.fase = 'despertando';
+    expect(lacosDaFase(w)).toEqual({ ambiente: true, drone: true, alarme: true, lamento: false });
+  });
+
+  it('morto (tela de morte, 2 s): os laços seguem', () => {
+    const w = mundo();
+    w.alarme = true;
+    w.estado = 'morto';
+    expect(lacosDaFase(w)).toEqual({ ambiente: true, drone: true, alarme: true, lamento: false });
+  });
+
+  it('fase concluída: nenhum laço, nem com o alarme ligado ou o chefe inerte', () => {
+    const w = criarWorld(faseComChefe(PLANTA_L, { em: [5, 1] }));
+    w.alarme = true;
+    w.estado = 'concluida';
+    expect(lacosDaFase(w)).toEqual({ ambiente: false, drone: false, alarme: false, lamento: false });
   });
 });

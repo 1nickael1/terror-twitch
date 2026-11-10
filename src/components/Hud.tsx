@@ -104,6 +104,7 @@ export function Hud({ snap }: HudProps) {
       )}
 
       <div className={css.mira} aria-hidden="true" />
+      {snap.dicaUso && <p className={css.dicaUso}>{snap.dicaUso}</p>}
 
       {snap.chefe && <BarraDoChefe nome={snap.chefe.nome} vida={snap.chefe.vida} />}
 

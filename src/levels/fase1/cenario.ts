@@ -102,8 +102,15 @@ const PLACAS: PropDef[] = [
   { em: [39, 37], tipo: 'placa', parede: 'n', texto: 'TRIAGEM' },
   { em: [22, 35], tipo: 'placa', parede: 'l', texto: 'TRIAGEM' },
   { em: [1, 30], tipo: 'placa', parede: 'o', texto: 'CABINE DE CONTROLE' },
-  { em: [10, 25], tipo: 'placa', parede: 'l', texto: 'COMPORTA A' },
-  { em: [10, 33], tipo: 'placa', parede: 'l', texto: 'COMPORTA B' },
+  // comportas: o mesmo nome dos dois lados da divisória e nos rótulos dos terminais
+  { em: [10, 25], tipo: 'placa', parede: 'l', texto: 'COMPORTA NORTE' },
+  { em: [14, 25], tipo: 'placa', parede: 'o', texto: 'COMPORTA NORTE' },
+  { em: [10, 33], tipo: 'placa', parede: 'l', texto: 'COMPORTA SUL' },
+  { em: [14, 33], tipo: 'placa', parede: 'o', texto: 'COMPORTA SUL' },
+  // da entrada da triagem até a escada da cabine (setas para quem olha a placa)
+  { em: [14, 37], tipo: 'placa', parede: 'o', texto: 'CABINE DE CONTROLE → PELOS VÃOS' },
+  { em: [3, 26], tipo: 'placa', parede: 's', texto: 'ESCADA DA CABINE →' },
+  { em: [3, 36], tipo: 'placa', parede: 'n', texto: '← ESCADA DA CABINE' },
   { em: [7, 24], tipo: 'placa', parede: 'n', texto: 'SAÍDA DE SERVIÇO' },
   { em: [7, 21], tipo: 'placa', parede: 'n', texto: 'ELEVADOR DE SERVIÇO' },
   { em: [14, 41], tipo: 'placa', parede: 'l', texto: 'TRIAGEM' },
@@ -189,7 +196,12 @@ const MOVEIS: PropDef[] = [
 
 export const PROPS: PropDef[] = [...PLACAS, ...MOVEIS];
 
+/** Faixa de perigo em cada célula do chão dos dois vãos das comportas (áreas em `index.ts`). */
+const FAIXAS: DecalDef[] = [26, 34].flatMap((r0) =>
+  [0, 1, 2].flatMap((dr) => [11, 12, 13].map((col): DecalDef => ({ em: [col, r0 + dr], tipo: 'faixa' }))));
+
 export const DECALS: DecalDef[] = [
+  ...FAIXAS,
   { em: [29, 5], tipo: 'sangue' },
   { em: [25, 16], tipo: 'sangue' },
   { em: [26, 14], tipo: 'sangue' },

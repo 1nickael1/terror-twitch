@@ -10,7 +10,7 @@ import type { LevelDef, PropDef, TipoProp } from '../../sim/fase';
 import { CELL, alturaPiso, centro, type Grid } from '../../sim/grid';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { pintar, unir } from './inimigosModelos';
-import { layoutAtlas, linhasDaPlaca, normalParede, uvNoAtlas } from './placasLogica';
+import { ladrilhosDasPlacas, layoutAtlas, linhasDaPlaca, normalParede, uvNoAtlas } from './placasLogica';
 import type { Recursos } from './recursos';
 import { texturaAtlasPlacas } from './texturasCenario';
 
@@ -131,11 +131,13 @@ export function construirProps(fase: LevelDef, g: Grid, rec: Recursos, grupo: Gr
   // placas: um atlas de textura e uma malha só para todas (uma draw call), sem sombra própria
   const placas = fase.props.filter((d) => d.tipo === 'placa');
   if (placas.length === 0) return;
-  const layout = layoutAtlas(placas.length);
-  const tex = rec.tex(texturaAtlasPlacas(placas.map((d) => linhasDaPlaca(d.texto ?? '', LINHA_PLACA)), layout));
+  // textos repetidos dividem o ladrilho (o atlas não encolhe à toa)
+  const { unicos, indice } = ladrilhosDasPlacas(placas.map((d) => d.texto ?? ''));
+  const layout = layoutAtlas(unicos.length);
+  const tex = rec.tex(texturaAtlasPlacas(unicos.map((t) => linhasDaPlaca(t, LINHA_PLACA)), layout));
   const quads = placas.map((d, i) => {
     const q = new PlaneGeometry(LARGURA_PLACA, ALTURA_PLACA);
-    const [u0, v0, u1, v1] = uvNoAtlas(i, layout);
+    const [u0, v0, u1, v1] = uvNoAtlas(indice[i], layout);
     const uv = q.getAttribute('uv');
     for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) < 0.5 ? u0 : u1, uv.getY(k) < 0.5 ? v0 : v1);
     const n = normalParede(d.parede, d.yaw ?? 0);

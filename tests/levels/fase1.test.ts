@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { celulasDe } from '../../src/levels/alcance';
 import { fase1 } from '../../src/levels/fase1';
+import { MENSAGENS, mensagemCabine } from '../../src/levels/fase1/textos';
 import { FASES } from '../../src/levels/indice';
 import { percorrer } from '../../src/levels/robo';
 import { validarFase } from '../../src/levels/validar';
@@ -11,6 +12,7 @@ import { solidoDe } from '../../src/sim/doors';
 import { alturaPiso, celula, centro, criarGrid, passavel, SALTO, visivel, type Coord } from '../../src/sim/grid';
 import { resolverOnde } from '../../src/sim/onde';
 import { PASSO, step } from '../../src/sim/step';
+import { avancarGatilhos } from '../../src/sim/triggers';
 import { criarWorld, INPUT_VAZIO } from '../../src/sim/world';
 import { correrPerseguicao } from './perseguicaoRoteiro';
 
@@ -232,6 +234,68 @@ describe('fase 1', () => {
         expect(Math.hypot(pt.x - pp.x, pt.z - pp.z), `${t.id} x ${porta.id}`).toBeGreaterThan(4.4);
       }
     }
+  });
+});
+
+describe('fase 1: ajustes do playtest (alarme no fim e leitura das comportas)', () => {
+  it('a brecha liga o alarme e o chefe morto desliga, com a mensagem do fim', () => {
+    const w = criarWorld(fase1);
+    w.jogador.pos = centro([27, 2]);   // área do gatilho da brecha
+    avancarGatilhos(w, []);
+    expect(w.alarme).toBe(true);
+    w.chefe!.fase = 'morto';
+    const ev = avancarGatilhos(w, []);
+    expect(w.alarme).toBe(false);
+    expect(ev).toContainEqual({ tipo: 'alarme', ligado: false });
+    expect(ev).toContainEqual({ tipo: 'mensagem', texto: MENSAGENS.fim });
+  });
+
+  it('terminais têm rótulo com o lado do vão, e cada vão tem placa com o mesmo nome dos dois lados da divisória', () => {
+    const rotulos = Object.fromEntries(fase1.terminais.map((t) => [t.id, t.rotulo]));
+    expect(rotulos).toEqual({ 'terminal-a': 'Comporta norte', 'terminal-b': 'Comporta sul' });
+    const placas = fase1.props.filter((p) => p.tipo === 'placa');
+    for (const nome of ['COMPORTA NORTE', 'COMPORTA SUL']) {
+      const lados = placas.filter((p) => p.texto === nome).map((p) => (p.em[0] < 11 ? 'oeste' : 'leste'));
+      expect(new Set(lados), nome).toEqual(new Set(['oeste', 'leste']));
+    }
+  });
+
+  it('placas levam da entrada da triagem à escada da cabine', () => {
+    const cabine = fase1.props.filter((p) => p.tipo === 'placa' && /CABINE/.test(p.texto ?? ''));
+    // uma no lado da entrada (leste da divisória) e uma junto de cada escada (oeste)
+    expect(cabine.some((p) => p.em[0] >= 14)).toBe(true);
+    expect(cabine.filter((p) => p.em[0] <= 4 && p.em[1] < 29).length).toBeGreaterThanOrEqual(1);
+    expect(cabine.filter((p) => p.em[0] <= 4 && p.em[1] > 33).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('o chão de cada vão de comporta é todo marcado com faixa de perigo', () => {
+    for (const p of fase1.chefe!.perigos) {
+      for (const c of celulasDe(p.area)) {
+        const faixa = fase1.decals.find((d) => d.tipo === 'faixa' && !d.parede && d.em[0] === c[0] && d.em[1] === c[1]);
+        expect(faixa, `${p.id} [${c}]`).toBeDefined();
+      }
+    }
+  });
+
+  it('a mensagem da triagem explica comporta, cabine, vão e terminal em até duas linhas', () => {
+    const t = MENSAGENS.triagem;
+    for (const palavra of ['comporta', 'cabine', 'vão', 'terminal', '(E)']) expect(t.toLowerCase()).toContain(palavra.toLowerCase());
+    expect(t.length).toBeLessThanOrEqual(160);
+  });
+
+  it('entrar na cabine mostra como os terminais se ligam aos vãos', () => {
+    const w = criarWorld(fase1);
+    w.jogador.pos = centro([3, 31]);
+    const ev = avancarGatilhos(w, []);
+    expect(ev.some((e) => e.tipo === 'mensagem' && /Cabine de controle/.test(e.texto))).toBe(true);
+  });
+
+  it('a mensagem da cabine diz a recarga real das comportas da fase', () => {
+    const gat = fase1.gatilhos.find((x) => x.id === 'cabine')!;
+    const msg = gat.faz.find((a) => a.acao === 'mensagem');
+    const texto = msg?.acao === 'mensagem' ? msg.texto : '';
+    for (const p of fase1.chefe!.perigos) expect(texto).toContain(`recarrega em ${String(p.recarga).replace('.', ',')} s`);
+    expect(mensagemCabine(4.5)).toContain('recarrega em 4,5 s');
   });
 });
 

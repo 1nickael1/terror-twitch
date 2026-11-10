@@ -1,4 +1,4 @@
-// Decalques: os `DecalDef` da fase (sangue, queimado, marca) e as marcas de tiro. Quads com
+// Decalques: os `DecalDef` da fase (sangue, queimado, marca, faixa de perigo) e as marcas de tiro. Quads com
 // `polygonOffset` (slots do banco: reagem à luz e trocam lambert/standard com o filtro).
 // DecalDef: no chão da célula, ou na parede indicada (n = -z, s = +z, l = +x, o = -x).
 // Marcas de tiro: pool de 64 instâncias, recicla a mais antiga. Sem raycast: o ponto do evento
@@ -13,11 +13,13 @@ import { CELL, alturaPiso, celula, centro, coordDe, type Grid } from '../../sim/
 import type { World } from '../../sim/world';
 import { impactoEmPortaOuJanela } from './marcasTiro';
 import type { Recursos } from './recursos';
-import { texturaFuro, texturaMarca, texturaQueimado, texturaSangue } from './texturasEfeitos';
+import { texturaFaixa, texturaFuro, texturaMarca, texturaQueimado, texturaSangue } from './texturasEfeitos';
 
 const MAX_MARCAS = 64;
 const TAMANHO_MARCA = 0.14;
-const TAMANHO: Record<DecalDef['tipo'], number> = { sangue: 1.5, queimado: 1.7, marca: 1.0 };
+const TAMANHO: Record<DecalDef['tipo'], number> = { sangue: 1.5, queimado: 1.7, marca: 1.0, faixa: CELL };
+/** decalques que cobrem a célula inteira, alinhados, sem giro nem escala aleatória (emendam com os vizinhos) */
+const ALINHADOS: ReadonlySet<DecalDef['tipo']> = new Set(['faixa']);
 const ALTURA_PAREDE = 1.15;
 /** a esta distância (m) de uma borda de célula, piso ou teto, o impacto conta como nela */
 const PERTO = 0.12;
@@ -42,9 +44,9 @@ export class DecalsView {
 
   constructor(fase: LevelDef, g: Grid, rec: Recursos, grupo: Group, private readonly camera: PerspectiveCamera) {
     const quad = rec.geo(new PlaneGeometry(1, 1));
-    const texturas = { sangue: texturaSangue, queimado: texturaQueimado, marca: texturaMarca };
+    const texturas = { sangue: texturaSangue, queimado: texturaQueimado, marca: texturaMarca, faixa: texturaFaixa };
 
-    for (const tipo of ['sangue', 'queimado', 'marca'] as const) {
+    for (const tipo of ['sangue', 'queimado', 'marca', 'faixa'] as const) {
       const defs = fase.decals.filter((d) => d.tipo === tipo);
       if (defs.length === 0) continue;
       const slot = rec.slot(`decal-${tipo}`, { map: rec.tex(texturas[tipo]()), decal: true, roughness: 0.9 });
@@ -89,7 +91,8 @@ export class DecalsView {
     const [col, row] = d.em;
     const c = celula(g, col, row);
     const { x, z } = centro(d.em);
-    const s = TAMANHO[d.tipo] * (0.85 + ((i * 0.37) % 0.3));
+    const alinhado = ALINHADOS.has(d.tipo);
+    const s = alinhado ? TAMANHO[d.tipo] : TAMANHO[d.tipo] * (0.85 + ((i * 0.37) % 0.3));
     if (d.parede) {
       const [nx, nz] = NORMAL_PAREDE[d.parede];
       // a face fica na borda da célula, do lado oposto à normal
@@ -100,7 +103,7 @@ export class DecalsView {
       this.pos.set(x, alturaPiso(g, { x, z }), z);
       this.normal.set(0, 1, 0);
     }
-    this.orientar(i * 2.39);
+    this.orientar(alinhado ? 0 : i * 2.39);
     this.esc.set(s, s, 1);
     return this.m.compose(this.pos, this.rot, this.esc);
   }
