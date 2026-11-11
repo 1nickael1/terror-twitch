@@ -12,7 +12,9 @@ import { criarWorld, restaurarCheckpoint } from '../../src/sim/world';
 import { avancarPortas, comandarPorta, usar } from '../../src/sim/doors';
 import { centro } from '../../src/sim/grid';
 import { ESTANDE } from '../../src/levels/estande';
+import { FASES } from '../../src/levels/indice';
 import { faseMinima } from '../sim/ajuda';
+import { coletar } from '../../src/sim/pickups';
 
 let modelo: Object3D;
 beforeAll(async () => {
@@ -139,5 +141,40 @@ it('mostra a placa roxa na porta de nível 3 e muda o mesmo objeto para liberado
   expect(mesh.geometry).toBe(geo);
   avancarPortas(w, 2); usar(w); avancarPortas(w, 2); view.sincronizar(w);
   expect((mesh.material as MeshStandardMaterial).emissiveMap).toBe(emissao);
+  rec.dispose(); bank.dispose();
+});
+
+for (const fase of FASES) it(`usa leitores novos nas duas faces de todas as portas da campanha: ${fase.id}`, () => {
+  const { w, raiz, rec, bank } = preparar(criarWorld(fase));
+  expect(raiz.children.filter(o => o.name.startsWith('fechadura:'))).toHaveLength(w.portas.length * 2);
+  for (const p of w.portas) {
+    const slots = p.exige === 3 ? SLOT_FECHADURA_N3 : p.exige === 2 ? SLOT_FECHADURA_N2 : SLOT_FECHADURA;
+    for (const face of [-1, 1]) {
+      const leitor = raiz.getObjectByName(`fechadura:${p.id}:${face}`)!;
+      expect(leitor, `Leitor ausente em ${p.id}`).toBeDefined();
+      expect(malha(leitor).material).toBe(bank.get(p.estado === 'trancada' ? slots.bloqueada : slots.liberada));
+    }
+  }
+  rec.dispose(); bank.dispose();
+});
+
+it('destranca o acesso real de nível 3 da campanha com a coleta do cartão e preserva a mesma malha ao fechar', () => {
+  const fase = FASES.find(f => f.portas.some(p => p.exige === 3))!;
+  expect(fase).toBeDefined();
+  const { w, raiz, rec, bank, view, emissao } = preparar(criarWorld(fase));
+  const p = w.portas.find(p => p.exige === 3)!;
+  const leitor = raiz.getObjectByName(`fechadura:${p.id}:1`)!;
+  const mesh = malha(leitor), geo = mesh.geometry;
+  const mirar = () => { w.jogador.pos = centro([p.coord[0] + 1, p.coord[1]]); w.jogador.yaw = Math.PI / 2; };
+  mirar(); w.jogador.cartoes = [2];
+  expect(usar(w)).toContainEqual({ tipo: 'porta_negada', id: p.id, exige: 3 });
+  const cartao = w.pickups.find(p => p.def.tipo === 'cartao' && p.def.nivel === 3)!;
+  w.jogador.pos = { ...cartao.pos }; coletar(w);
+  expect(w.jogador.cartoes).toContain(3);
+  mirar(); expect(usar(w)).toContainEqual({ tipo: 'porta_desbloqueada', id: p.id });
+  view.sincronizar(w); expect((mesh.material as MeshStandardMaterial).emissiveMap).toBe(emissao);
+  avancarPortas(w, 2); usar(w); avancarPortas(w, 2); view.sincronizar(w);
+  expect(p.estado).toBe('fechada'); expect((mesh.material as MeshStandardMaterial).emissiveMap).toBe(emissao);
+  expect(raiz.getObjectByName(`fechadura:${p.id}:1`)).toBe(leitor); expect(mesh.geometry).toBe(geo);
   rec.dispose(); bank.dispose();
 });

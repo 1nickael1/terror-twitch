@@ -99,8 +99,9 @@ export class PortasView {
 
       // indicador nos dois lados da porta, junto ao montante, saltado da face
       [-1, 1].forEach((face, j) => {
-        if (p.exige && fechadura) {
-          const vista = fechadura.criarVista(rec, p.exige);
+        if (fechadura) {
+          // Portas comuns também usam o leitor novo, já liberado se não estiverem trancadas.
+          const vista = fechadura.criarVista(rec, p.exige ?? 1);
           vista.grupo.name = `fechadura:${p.id}:${face}`;
           vista.grupo.position.set(emX ? cx + face * .207 : cx + CENTRO_BATENTE, c.piso + 1.45, emX ? cz + CENTRO_BATENTE : cz + face * .207);
           vista.grupo.rotation.y = emX ? face * Math.PI / 2 : face === 1 ? 0 : Math.PI;

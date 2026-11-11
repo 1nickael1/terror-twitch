@@ -102,7 +102,7 @@ const PLACAS: PropDef[] = [
   { em: [50, 16], tipo: 'placa', parede: 'l', texto: 'ELEVADOR DE MACAS → ANFITEATRO' },
   { em: [43, 18], tipo: 'placa', parede: 'n', texto: 'CÂMARA FRIA · GAVETAS 1–18' },
   { em: [47, 25], tipo: 'placa', parede: 's', texto: 'ELEVADOR DE MACAS' },
-  { em: [40, 28], tipo: 'placa', parede: 's', texto: 'ANFITEATRO 2 · OBSERVAÇÃO' },
+  { em: [40, 28], tipo: 'placa', parede: 's', texto: 'OBSERVAÇÃO · ACESSO NÍVEL 3' },
   // anfiteatro: cada terminal tem placa ao lado com o nome do perigo e onde ele age
   { em: [29, 31], tipo: 'placa', parede: 'n', texto: 'ANFITEATRO CIRÚRGICO 2' },
   { em: [27, 36], tipo: 'placa', parede: 'o', texto: 'UV OESTE · LUZ NO PISO À FRENTE' },

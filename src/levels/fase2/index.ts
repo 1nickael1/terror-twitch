@@ -130,6 +130,7 @@ export const fase2: LevelDef = {
     { id: 'necroterio', em: 'G' },
     { id: 'elevador', em: 'H', trancada: true },
     { id: 'elevador-fundo', em: 'I', trancada: true },
+    { id: 'acesso-observacao', em: [39, 28], exige: 3, trancada: true },
     { id: 'anfiteatro', em: 'J' },
     { id: 'anfiteatro-saida', em: 'K', trancada: true },
   ],
@@ -165,6 +166,8 @@ export const fase2: LevelDef = {
     { em: [43, 25], tipo: 'municao', municao: 'cartuchos', quantidade: 6 },
     { em: [53, 18], tipo: 'vida_p' },
     // corredor de serviço e anfiteatro
+    // Depois do elevador, antes do acesso restrito: o cartão entra no checkpoint do corredor.
+    { em: [45, 28], tipo: 'cartao', nivel: 3 },
     { em: [36, 28], tipo: 'colete_p' },
     { em: [28, 31], tipo: 'municao', municao: 'leves', quantidade: 40 },
     { em: [45, 31], tipo: 'vida_p' },

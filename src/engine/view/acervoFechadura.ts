@@ -18,7 +18,7 @@ export class AcervoFechadura implements ModelosFechadura {
   }
 
   private async carregar(): Promise<void> {
-    const gltf = await new GLTFLoader().loadAsync('/models/fechadura-nivel1/fechadura.glb?v=3');
+    const gltf = await new GLTFLoader().loadAsync('/models/fechadura-nivel1/fechadura.glb?v=4');
     const materiais = await gltf.parser.getDependencies('material') as MeshStandardMaterial[];
     const mapas = new Set<Texture>();
     gltf.scene.traverse(o => { const m = o as Mesh; if (m.isMesh) this.geometrias.add(m.geometry); });

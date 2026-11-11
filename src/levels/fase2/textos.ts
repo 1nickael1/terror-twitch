@@ -13,7 +13,7 @@ export const MENSAGENS = {
   antecamara: 'Necrotério à frente. O elevador de macas desce ao anfiteatro cirúrgico.',
   elevadorAberto: 'Elevador de macas no andar. Porta aberta.',
   elevadorDescendo: 'Elevador em movimento. Destino: anfiteatro cirúrgico.',
-  elevadorChegou: 'Anfiteatro cirúrgico, nível de observação.',
+  elevadorChegou: 'Anfiteatro cirúrgico, nível de observação. Recolha o cartão nível 3 no corredor e apresente-o no acesso restrito.',
   anfiteatro: 'Anfiteatro: UV no piso (terminais oeste e leste), vapor nas arquibancadas (norte e sul). Atraia-o até a área e use o terminal.',
   chefeFerido: 'Ferido, ele levanta os mortos com mais pressa. Não deixe corpos perto dele.',
   fim: 'Visitante imobilizado. Alarme encerrado. Saída de emergência liberada.',

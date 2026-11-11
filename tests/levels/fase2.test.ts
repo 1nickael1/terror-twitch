@@ -47,12 +47,12 @@ describe('fase 2', () => {
     expect(FASES).toEqual([fase1, fase2]);
   });
 
-  it('passa no validador com os mínimos do adendo (≥ 2 segredos, ≥ 2 documentos, cartões 1 e 2 com portas)', () => {
+  it('passa no validador com os mínimos do adendo (≥ 2 segredos, ≥ 2 documentos, cartões 1, 2 e 3 com portas)', () => {
     expect(validarFase(fase2)).toEqual([]);
     expect(fase2.segredos.length).toBeGreaterThanOrEqual(2);
     expect(fase2.documentos.length).toBeGreaterThanOrEqual(2);
-    expect(new Set(fase2.pickups.filter((p) => p.tipo === 'cartao').map((p) => p.nivel))).toEqual(new Set([1, 2]));
-    expect(new Set(fase2.portas.filter((p) => p.exige).map((p) => p.exige))).toEqual(new Set([1, 2]));
+    expect(new Set(fase2.pickups.filter((p) => p.tipo === 'cartao').map((p) => p.nivel))).toEqual(new Set([1, 2, 3]));
+    expect(new Set(fase2.portas.filter((p) => p.exige).map((p) => p.exige))).toEqual(new Set([1, 2, 3]));
     expect(fase2.ambiente.somDeFundo).toBe('hospital');
   });
 
