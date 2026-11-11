@@ -26,41 +26,41 @@ export const TIPOS: Record<string, TipoInimigo> = {
     distanciaIdeal: 0, projetil: null, reanimavel: false, deitado: false,
   },
   funcionario: {
-    arquetipo: 'avancador', vida: 40, velocidade: 4.5, raio: 0.35, altura: 1.8,
+    arquetipo: 'avancador', vida: 40, velocidade: 2.2, raio: 0.35, altura: 1.8,
     visao: 16, visaoEscuro: 7, cone: CONE, audicao: 1,
     dano: 10, alcanceAtaque: 1.2, cadencia: 1.0, preparo: 0.35, dor: 0.25,
     distanciaIdeal: 0, projetil: null, reanimavel: false, deitado: false,
   },
   seguranca: {
-    arquetipo: 'atirador', vida: 55, velocidade: 3.2, raio: 0.35, altura: 1.8,
+    arquetipo: 'atirador', vida: 55, velocidade: 1.8, raio: 0.35, altura: 1.8,
     visao: 20, visaoEscuro: 9, cone: CONE, audicao: 1,
     dano: 12, alcanceAtaque: 16, cadencia: 1.6, preparo: 0.5, dor: 0.25,
     distanciaIdeal: 9, projetil: { velocidade: 11, raio: 0.15 }, reanimavel: false, deitado: false,
   },
   // chefe da fase 1: a IA é `ai/chefe096.ts` (regras em `CHEFE_096`); `dor` 0 = não para ao levar dano
   entidade096: {
-    arquetipo: 'avancador', vida: 900, velocidade: 8.2, raio: 0.45, altura: 2.4,
+    arquetipo: 'avancador', vida: 900, velocidade: 7, raio: 0.45, altura: 2.4,
     visao: 60, visaoEscuro: 60, cone: 2 * Math.PI, audicao: 0,
     dano: 70, alcanceAtaque: 1.3, cadencia: 1.4, preparo: 0.45, dor: 0,
     distanciaIdeal: 0, projetil: null, reanimavel: false, deitado: false,
   },
   // fase 2: avançador resistente; o chefe 049 levanta o corpo
   reanimado: {
-    arquetipo: 'avancador', vida: 70, velocidade: 3.6, raio: 0.38, altura: 1.8,
+    arquetipo: 'avancador', vida: 70, velocidade: 2.2, raio: 0.38, altura: 1.8,
     visao: 14, visaoEscuro: 6, cone: CONE, audicao: 1.2,
     dano: 14, alcanceAtaque: 1.2, cadencia: 1.1, preparo: 0.45, dor: 0.12,
     distanciaIdeal: 0, projetil: null, reanimavel: true, deitado: false,
   },
   // emboscador deitado entre os corpos: levanta (`IA.levantar`) ao perceber o jogador
   reanimado_cirurgico: {
-    arquetipo: 'emboscador', vida: 55, velocidade: 5.0, raio: 0.36, altura: 1.75,
+    arquetipo: 'emboscador', vida: 55, velocidade: 3, raio: 0.36, altura: 1.75,
     visao: 10, visaoEscuro: 5, cone: CONE, audicao: 0.8,
     dano: 18, alcanceAtaque: 1.3, cadencia: 1.0, preparo: 0.3, dor: 0.2,
     distanciaIdeal: 0, projetil: null, reanimavel: true, deitado: true,
   },
   // atirador de frascos: parábola até o ponto mirado, respingo ao quebrar
   enfermeiro: {
-    arquetipo: 'atirador', vida: 50, velocidade: 3.0, raio: 0.35, altura: 1.8,
+    arquetipo: 'atirador', vida: 50, velocidade: 1.8, raio: 0.35, altura: 1.8,
     visao: 18, visaoEscuro: 8, cone: CONE, audicao: 1,
     dano: 16, alcanceAtaque: 14, cadencia: 2.2, preparo: 0.7, dor: 0.3,
     distanciaIdeal: 8, projetil: { velocidade: 9, raio: 0.18, arco: { gravidade: 12, respingo: 1.6 } },
@@ -68,7 +68,7 @@ export const TIPOS: Record<string, TipoInimigo> = {
   },
   // chefe da fase 2: a IA é `ai/chefe049.ts` (regras em `CHEFE_049`); o toque é o golpe (`dano`, `preparo`)
   entidade049: {
-    arquetipo: 'avancador', vida: 1100, velocidade: 2.2, raio: 0.4, altura: 2.0,
+    arquetipo: 'avancador', vida: 1100, velocidade: 1.5, raio: 0.4, altura: 2.0,
     visao: 40, visaoEscuro: 40, cone: 2 * Math.PI, audicao: 0,
     dano: 85, alcanceAtaque: 1.4, cadencia: 2.2, preparo: 0.9, dor: 0,
     distanciaIdeal: 0, projetil: null, reanimavel: false, deitado: false,

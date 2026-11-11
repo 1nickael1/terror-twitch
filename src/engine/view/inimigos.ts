@@ -21,6 +21,7 @@ import { aVista } from './oclusao';
 import type { Recursos } from './recursos';
 import type { AcervoDoutor, InstanciaDoutor } from './doutor';
 import type { AcervoPolicial, InstanciaPolicial } from './policial';
+import type { AcervoChefe, InstanciaChefe } from './chefe';
 import { movimentoParaTras } from './policialAnimacoes';
 
 const QUEDA = 0.4;            // s até o corpo estar no chão
@@ -49,6 +50,7 @@ interface Vista {
   tipo: string; rig: Rig;
   doutor: InstanciaDoutor | null;
   policial: InstanciaPolicial | null;
+  chefeModelo: InstanciaChefe | null;
   antes: { x: number; y: number; z: number }; agora: { x: number; y: number; z: number };
   yaw: number; vel: number; recuando: boolean; passada: number; t: number;
   modo: Inimigo['modo']; golpe: number; dor: number; clarao: number; piscando: boolean;
@@ -79,7 +81,7 @@ export class InimigosView {
   private ultimoT = -1;
   private quadro = 0;
 
-  constructor(private readonly rec: Recursos, grupo: Group, private readonly doutor?: AcervoDoutor, private readonly policial?: AcervoPolicial) {
+  constructor(private readonly rec: Recursos, grupo: Group, private readonly doutor?: AcervoDoutor, private readonly policial?: AcervoPolicial, private readonly chefeModelo?: AcervoChefe) {
     this.raiz.name = 'inimigos';
     grupo.add(this.raiz);
     this.modelos = new ModelosInimigos(rec);
@@ -150,7 +152,7 @@ export class InimigosView {
       if (!v) continue;
       if (e.tipo === 'inimigo_ataque') {
         // o golpe do chefe desce o braço erguido (os comuns animam pela troca de modo)
-        if (v.chefe) v.golpe = 0;
+        if (v.chefe) { v.golpe = 0; v.chefeModelo?.atacar(); }
         continue;
       }
       v.dor = 0;
@@ -175,7 +177,7 @@ export class InimigosView {
     rig.raiz.name = `inimigo:${i.id}`;
     this.raiz.add(rig.raiz);
     const v: Vista = {
-      tipo: i.tipo, rig, doutor: null, policial: null, antes: { x: i.pos.x, y: i.y, z: i.pos.z }, agora: { x: i.pos.x, y: i.y, z: i.pos.z }, yaw: i.yaw, vel: 0, recuando: false, passada: 0, t: (i.id * 0.37) % 6,
+      tipo: i.tipo, rig, doutor: null, policial: null, chefeModelo: null, antes: { x: i.pos.x, y: i.y, z: i.pos.z }, agora: { x: i.pos.x, y: i.y, z: i.pos.z }, yaw: i.yaw, vel: 0, recuando: false, passada: 0, t: (i.id * 0.37) % 6,
       modo: i.modo, golpe: -1, dor: DOR_VISUAL, clarao: 0, piscando: false,
       // já morto ao aparecer (checkpoint): deitado desde o início
       morto: 0, poseMorte: novaPose(), pose: novaPose(), quadro: this.quadro, preparo: 0,
@@ -196,6 +198,7 @@ export class InimigosView {
     if (!v) return;
     v.doutor?.dispose();
     v.policial?.dispose();
+    v.chefeModelo?.dispose();
     this.raiz.remove(v.rig.raiz);
     for (const m of v.rig.malhas) this.rec.soltarMalha(m.malha);
     this.vistas.delete(id);
@@ -289,6 +292,11 @@ export class InimigosView {
     );
     if (i.modo !== 'morto') v.yaw += difAngulo(i.yaw, v.yaw) * (1 - Math.exp(-dt * SUAVE_YAW));
     v.rig.raiz.rotation.y = v.yaw;
+    if (v.tipo === 'entidade096' && !v.chefeModelo && this.chefeModelo?.estado === 'pronto') {
+      v.chefeModelo = this.chefeModelo.criar(this.rec);
+      if (v.chefeModelo) { v.rig.corpo.visible = false; v.rig.raiz.add(v.chefeModelo.raiz); }
+    }
+    v.chefeModelo?.animar(i, chefe?.tipo === 'entidade096' ? chefe : null, v.vel, simDt);
     if (v.tipo === 'funcionario' && !v.doutor && this.doutor?.estado === 'pronto') {
       v.doutor = this.doutor.criar(this.rec);
       if (v.doutor) {

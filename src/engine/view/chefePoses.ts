@@ -71,6 +71,7 @@ export function calcularPoseChefe(p: Pose, b: PoseBase, v: EstadoVisual, e: Entr
       p.pernaEX = -0.08;
       p.pernaDX = 0.12;
       return;
+    case 'procurando':
     case 'inerte': {
       // de pé, curvado, balanço lento; os ombros tremem de leve
       const tremor = Math.sin(t * 26) * 0.012;

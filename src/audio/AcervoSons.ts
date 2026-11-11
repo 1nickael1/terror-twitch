@@ -75,6 +75,8 @@ export class AcervoSons {
     };
     if (nome !== 'recargaEscopeta') this.sons.set(nome, som);
     else this.sons.set('municaoEscopeta', som);
+    // O encontro usa o mesmo grito do alarme, agora posicionado no chefe.
+    if (nome === 'chefeDistante') this.sons.set('chefeDesperta', som);
     this.prepararEscopeta();
   }
   private prepararEscopeta(): void {

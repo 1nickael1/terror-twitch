@@ -32,6 +32,7 @@ describe('arquivos de áudio fornecidos pelo usuário', () => {
     await a.acervo.pronto; await a.lote.pronto;
     expect(a.acervo.obter('recuperarVida')).toBeTypeOf('function');
     expect(a.acervo.obter('pegarColete')).toBeTypeOf('function');
+    expect(a.acervo.obter('chefeDesperta')).toBe(a.acervo.obter('chefeDistante'));
     for (const som of ['pegarCartao', 'portaMotor', 'portaNegada', 'portaDesbloqueada', 'doutorAtaque', 'doutorMorte', 'chefeDistante', 'explosao', 'sireneCurta'] as const) expect(a.acervo.obter(som)).toBeTypeOf('function');
     expect(a.fetch.mock.calls.map(c => c[0])).toEqual(['/audio/pistola/tiro.mp3', '/audio/pistola/municao.mp3', '/audio/escopeta/tiro.mp3', '/audio/escopeta/recarga.mp3', '/audio/itens/recuperar-vida.mp3', '/audio/itens/pegar-colete.mp3', '/audio/smg/tiro.mp3', '/audio/lancador/tiro.mp3', '/audio/itens/cartao.mp3', '/audio/portas/movimento.mp3?v=2', '/audio/portas/negada.mp3', '/audio/portas/desbloqueio.mp3', '/audio/medico/ataque.mp3', '/audio/medico/morte.mp3', '/audio/chefe/grito-distante.mp3', '/audio/lancador/impacto.mp3', '/audio/sirene/alarme.mp3']);
     const fontes: Array<{ buffer: AudioBuffer | null; connect: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn> }> = [];

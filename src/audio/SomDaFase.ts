@@ -23,6 +23,7 @@ import { trilha } from './trilha';
 import * as D from './sinteseDoutor';
 import { PassosDoutor } from './passosDoutor';
 import type { AcervoSons } from './AcervoSons';
+import type { AcervoTrilha } from './AcervoTrilha';
 
 const SONS: Record<NomeSom, S.Sintese> = {
   chefeDistante: CH.chefeDesperta,
@@ -64,8 +65,8 @@ function contemId(lista: readonly LacoPerigo[], id: string): boolean {
 const OCLUSAO_LACO = 0.25;
 
 /** ganho do drone com tensão 0 e 1 */
-const DRONE_MIN = 0.18;
-const DRONE_MAX = 0.7;
+const DRONE_MIN = 0.32;
+const DRONE_MAX = 0.48;
 /** suavização do drone (constante de tempo, s) */
 const DRONE_SUAVE = 0.8;
 /** a tensão precisa mudar isto para reagendar o ganho */
@@ -96,6 +97,7 @@ export class SomDaFase {
     private readonly mixer: Mixer,
     private readonly fase: LevelDef,
     private readonly sons?: AcervoSons,
+    private readonly trilhaGravada?: AcervoTrilha,
   ) {
     this.temPerigoArea = (fase.chefe?.perigos ?? []).some((p) => p.tipo !== 'comporta');
   }
@@ -128,7 +130,8 @@ export class SomDaFase {
       if (ctx.state !== 'running') return;
       atualizarOuvinte(ctx, ouvinte);
       this.limitador.novoQuadro(ctx.currentTime * 1000);
-      for (const e of eventos) this.tocarEvento(ctx, world, e, ouvinte);
+      const despertar096 = world.chefe?.tipo === 'entidade096' && eventos.some(e => e.tipo === 'chefe_desperta');
+      for (const e of eventos) this.tocarEvento(ctx, world, e, ouvinte, despertar096);
       for (const p of this.passosDoutor.atualizar(world)) this.tocarPedido(ctx, world, p, ouvinte);
     } catch {
       /* WebAudio falhou no meio: o jogo segue sem som */
@@ -187,7 +190,7 @@ export class SomDaFase {
 
   private seguirDrone(b: S.Bancada, musica: GainNode, ligado: boolean, rampa?: number): void {
     if (ligado && !this.drone) {
-      this.drone = trilha(b, musica, this.fase.ambiente.somDeFundo === 'hospital');
+      this.drone = this.trilhaGravada?.criar(b, musica) ?? trilha(b, musica, this.fase.ambiente.somDeFundo === 'hospital');
       this.tensaoAplicada = -1;
     } else if (!ligado && this.drone) {
       this.drone.parar(b.ctx.currentTime, rampa);
@@ -250,10 +253,12 @@ export class SomDaFase {
     }
   }
 
-  private tocarEvento(ctx: AudioContext, world: World, e: SimEvent, ouvinte: Ouvinte): void {
+  private tocarEvento(ctx: AudioContext, world: World, e: SimEvent, ouvinte: Ouvinte, despertar096 = false): void {
     if (e.tipo === 'alarme') {
       if (e.ligado) this.tocarPedido(ctx, world, { som: 'sireneCurta', pos: null }, ouvinte);
       else this.sons?.cancelarSirene();
+      // O encontro também religa o alarme: um único grito, emitido pelo chefão.
+      if (despertar096) return;
     }
     if (e.tipo === 'arma_trocada' && e.arma !== 'escopeta') this.sons?.cancelarRecarga();
     const p = somDoEvento(e, world);

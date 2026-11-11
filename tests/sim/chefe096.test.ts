@@ -1,7 +1,7 @@
 // tests/sim/chefe096.test.ts — o chefe da fase 1 (inspirado no SCP-096)
 import { describe, expect, it } from 'vitest';
 import { avancarInimigos } from '../../src/sim/ai/comum';
-import { CHEFE_096 } from '../../src/sim/balance';
+import { CHEFE_096, JOGADOR } from '../../src/sim/balance';
 import { solidoDe } from '../../src/sim/doors';
 import type { SimEvent } from '../../src/sim/eventos';
 import type { PerigoDef } from '../../src/sim/fase';
@@ -215,7 +215,7 @@ describe('arena', () => {
     c.timer = CHEFE_096.investidaMax;
     c.investida = { x: -1, z: 0 };
     w.jogador.vida = 1000;
-    const ev = rodar(w, 0.7);
+    const ev = rodar(w, 1.2);
     expect(ev.filter((e) => e.tipo === 'dano_jogador')).toHaveLength(1);
     expect(c.fase).toBe('pausa');
   });
@@ -418,7 +418,7 @@ describe('correção 1 da revisão', () => {
     c.timer = CHEFE_096.investidaMax;
     c.investida = { x: Math.SQRT1_2, z: Math.SQRT1_2 };   // 45°, rumo à parede sul
     w.jogador.pos = centro([1, 1]);
-    rodar(w, 0.4);
+    rodar(w, .7);
     expect(c.fase).toBe('pausa');
     // bateu a z ≈ 7,55 depois de ~2,55 m em z; não escorregou pela parede até o fim dos 1,6 s
     expect(chefeDe(w).pos.x).toBeLessThan(11 + 3.5);
@@ -500,8 +500,8 @@ describe('lote final do CP2: velocidade, preparo da investida e passos', () => {
     const andou = x0 - chefeDe(w).pos.x;
     expect(andou).toBeGreaterThan(CHEFE_096.velocidadePerseguicao * 0.95);
     expect(andou).toBeLessThan(CHEFE_096.velocidadePerseguicao * 1.05);
-    expect(CHEFE_096.velocidadePerseguicao).toBeGreaterThanOrEqual(10);
-    expect(CHEFE_096.velocidadePerseguicao).toBeLessThanOrEqual(12);
+    expect(CHEFE_096.velocidadePerseguicao).toBeGreaterThan(JOGADOR.velocidade);
+    expect(CHEFE_096.velocidadePerseguicao).toBeLessThan(12);
   });
 
   it('toda investida começa com CHEFE_096.preparoInvestida s parado, com chefe_investida no início do preparo', () => {
@@ -548,6 +548,6 @@ describe('lote final do CP2: velocidade, preparo da investida e passos', () => {
     c.investida = { x: -1, z: 0 };
     w.jogador.vida = 1e6;
     expect(rodar(w, CHEFE_096.preparoInvestida - PASSO).some((e) => e.tipo === 'chefe_passo')).toBe(false);
-    expect(rodar(w, 0.5).filter((e) => e.tipo === 'chefe_passo').length).toBeGreaterThanOrEqual(2);
+    expect(rodar(w, 0.5).filter((e) => e.tipo === 'chefe_passo').length).toBeGreaterThanOrEqual(Math.floor(CHEFE_096.investidaVel * .45 / CHEFE_096.passoMetros));
   });
 });

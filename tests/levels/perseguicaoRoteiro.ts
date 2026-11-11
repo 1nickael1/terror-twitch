@@ -1,4 +1,4 @@
-// Roteiro da perseguição da fase 1 para os testes: o jogador corre a 9 m/s da entrada da cela até a
+// Roteiro da perseguição da fase 1 para os testes: o jogador anda na velocidade atual da entrada da cela até a
 // entrada da triagem seguindo `caminho`, abrindo as portas no caminho (e, se pedido, fechando cada uma
 // logo depois de atravessá-la), enquanto o `step` real move o chefe.
 import { fase1 } from '../../src/levels/fase1';
@@ -20,6 +20,8 @@ export interface ResultadoPerseguicao {
   alcancou: number | null;
   /** s do despertar até o chefe chegar a ALCANCE m da entrada da triagem (null: não chegou no limite) */
   chegadaChefe: number | null;
+  procurou: boolean;
+  portasArrombadas: number;
 }
 
 const dist = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -35,7 +37,7 @@ export function correrPerseguicao(fecharPortas: boolean, limite = 40): Resultado
   const rota = caminho(w.grid, j.pos, alvo, SALTO);
   if (!rota) throw new Error('sem caminho da cela à triagem');
   const passadas = new Set<string>();
-  const res: ResultadoPerseguicao = { chegadaJogador: NaN, alcancou: null, chegadaChefe: null };
+  const res: ResultadoPerseguicao = { chegadaJogador: NaN, alcancou: null, chegadaChefe: null, procurou: false, portasArrombadas: 0 };
   let t = 0;
   let chegou = false;
   for (let k = 0; k < limite / PASSO; k++) {
@@ -76,7 +78,9 @@ export function correrPerseguicao(fecharPortas: boolean, limite = 40): Resultado
         }
       }
     }
-    step(w, INPUT_VAZIO, PASSO);
+    const eventos = step(w, INPUT_VAZIO, PASSO);
+    res.procurou ||= w.chefe?.fase === 'procurando';
+    res.portasArrombadas += eventos.filter(e => e.tipo === 'chefe_arromba').length;
     t += PASSO;
     if (!chegou && rota.length === 0) {
       chegou = true;

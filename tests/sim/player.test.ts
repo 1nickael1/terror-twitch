@@ -23,7 +23,7 @@ describe('moverJogador', () => {
     const j = criarJogador(centro([1, 1]), LESTE);
     simular(j, anda(), 0.5);
     expect(Math.hypot(j.vel.x, j.vel.z)).toBeCloseTo(JOGADOR.velocidade, 1);
-    expect(j.pos.x).toBeGreaterThan(centro([1, 1]).x + 3);
+    expect(j.pos.x).toBeGreaterThan(centro([1, 1]).x + JOGADOR.velocidade * .4);
     expect(j.pos.z).toBeCloseTo(centro([1, 1]).z);
   });
 
@@ -109,9 +109,9 @@ describe('salto (correção 1)', () => {
     const j = criarJogador(centro([1, 1]), LESTE);
     const bordaPlataforma = 9 * CELL;
     const tipos: string[] = [];
-    for (let i = 0; i < 180; i++) {
+    for (let i = 0; i < 300; i++) {
       // corre até a velocidade máxima e aperta pular a ~3 m da borda
-      const pular = j.pos.x >= bordaPlataforma - 3.2;
+      const pular = j.pos.x >= bordaPlataforma - JOGADOR.velocidade * .22;
       tipos.push(...moverJogador(gSalto, j, anda({ pular }), dt).map((e) => e.tipo));
     }
     expect(tipos).toContain('pulo');
@@ -165,10 +165,10 @@ describe('raspar na lateral no ar (correção 2)', () => {
   `, { c: { piso: SALTO } });
   const bordaPlataforma = 9 * CELL;
 
-  it.each([1, 2])('correndo e pulando a cerca de %s m da borda, sobe na plataforma de altura SALTO', (distancia) => {
+  it.each([.6, 1.2])('correndo e pulando a cerca de %s m da borda, sobe na plataforma de altura SALTO', (distancia) => {
     const j = criarJogador(centro([1, 1]), LESTE);
     let pulou = false;
-    for (let i = 0; i < 180; i++) {
+    for (let i = 0; i < 300; i++) {
       const pular = !pulou && j.pos.x >= bordaPlataforma - distancia;
       if (pular) {
         expect(Math.hypot(j.vel.x, j.vel.z)).toBeCloseTo(JOGADOR.velocidade, 1);   // velocidade cheia

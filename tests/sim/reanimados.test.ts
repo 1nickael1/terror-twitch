@@ -37,17 +37,17 @@ function mundo(extra: Parameters<typeof faseMinima>[1] = {}): World {
 describe('tipos novos', () => {
   it('reanimado, cirúrgico e enfermeiro com os números do adendo', () => {
     expect(TIPOS.reanimado).toMatchObject({
-      arquetipo: 'avancador', vida: 70, velocidade: 3.6, raio: 0.38, altura: 1.8, visao: 14, visaoEscuro: 6,
+      arquetipo: 'avancador', vida: 70, velocidade: 2.2, raio: 0.38, altura: 1.8, visao: 14, visaoEscuro: 6,
       cone: CONE, audicao: 1.2, dano: 14, alcanceAtaque: 1.2, cadencia: 1.1, preparo: 0.45, dor: 0.12,
       projetil: null, reanimavel: true, deitado: false,
     });
     expect(TIPOS.reanimado_cirurgico).toMatchObject({
-      arquetipo: 'emboscador', vida: 55, velocidade: 5.0, raio: 0.36, altura: 1.75, visao: 10, visaoEscuro: 5,
+      arquetipo: 'emboscador', vida: 55, velocidade: 3, raio: 0.36, altura: 1.75, visao: 10, visaoEscuro: 5,
       cone: CONE, audicao: 0.8, dano: 18, alcanceAtaque: 1.3, cadencia: 1.0, preparo: 0.3, dor: 0.2,
       projetil: null, reanimavel: true, deitado: true,
     });
     expect(TIPOS.enfermeiro).toMatchObject({
-      arquetipo: 'atirador', vida: 50, velocidade: 3.0, raio: 0.35, altura: 1.8, visao: 18, visaoEscuro: 8,
+      arquetipo: 'atirador', vida: 50, velocidade: 1.8, raio: 0.35, altura: 1.8, visao: 18, visaoEscuro: 8,
       cone: CONE, audicao: 1, dano: 16, alcanceAtaque: 14, cadencia: 2.2, preparo: 0.7, dor: 0.3,
       distanciaIdeal: 8, projetil: { velocidade: 9, raio: 0.18, arco: { gravidade: 12, respingo: 1.6 } },
       reanimavel: false, deitado: false,

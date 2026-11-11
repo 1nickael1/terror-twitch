@@ -1,4 +1,4 @@
-// Chefe da fase 1 (entidade 096): inerte até ser visto, persegue sabendo onde o jogador está,
+// Chefe da fase 1 (entidade 096): inerte até ser visto, persegue e busca a última posição vista,
 // arromba portas e, na arena, alterna investidas e pausas. Lógica pura.
 import { CHEFE_096, IA, JOGADOR, NUVEM, PORTA } from '../balance';
 import { comandarPorta, solidoDe } from '../doors';
@@ -20,7 +20,7 @@ import { moverEntreInimigos } from './colisaoInimigos';
 
 /** O `Inimigo.modo` do chefe é derivado da fase (para as views e a tensão). */
 const MODO: Record<FaseChefe096, ModoIA> = {
-  inerte: 'patrulha', despertando: 'suspeita', pausa: 'suspeita',
+  inerte: 'patrulha', despertando: 'suspeita', pausa: 'suspeita', procurando: 'suspeita',
   perseguicao: 'perseguicao', investida: 'perseguicao', arrombando: 'ataque', morto: 'morto',
 };
 
@@ -72,7 +72,10 @@ export function despertarChefe(w: World): SimEvent[] {
   c.fase = 'despertando';
   c.timer = CHEFE_096.despertar;
   const i = inimigoDoChefe(w);
-  if (i && i.modo !== 'morto') i.modo = MODO.despertando;
+  if (i && i.modo !== 'morto') {
+    i.modo = MODO.despertando;
+    i.ultimoVisto = { ...w.jogador.pos }; i.semVer = 0;
+  }
   return [{ tipo: 'chefe_desperta' }];
 }
 
@@ -82,6 +85,12 @@ function entrarPerseguicao(c: EstadoChefe096, i: Inimigo): void {
   c.portaAlvo = null;
   c.investida = null;
   i.rotaEm = 0;
+}
+
+function entrarBusca(c: EstadoChefe096, i: Inimigo): void {
+  c.fase = 'procurando'; c.timer = 0; c.investida = null;
+  i.alvo = i.ultimoVisto ? { ...i.ultimoVisto } : { ...i.pos };
+  i.rota = []; i.rotaEm = 0;
 }
 
 function entrarPausa(c: EstadoChefe096): void {
@@ -128,28 +137,61 @@ function despertando(w: World, c: EstadoChefe096, i: Inimigo, dt: number): SimEv
 }
 
 /**
- * Sabe sempre onde o jogador está. Na arena, com linha de visão, investe. A `alcanceAtaque`,
+ * Segue o jogador visível ou sua última posição conhecida. Na arena, com linha de visão, investe. A `alcanceAtaque`,
  * golpeia como os inimigos comuns: `preparo` virado para ele (em `c.timer`), golpe se ainda está a
  * `alcanceAtaque * 1.2`, e `espera = cadencia`. Senão, segue a rota.
  */
 function perseguir(w: World, c: EstadoChefe096, i: Inimigo, t: TipoInimigo, vel: number, dt: number): SimEvent[] {
   const j = w.jogador;
+  const vendo = linhaDeVisao(w, i);
+  if (vendo) { i.ultimoVisto = { ...j.pos }; i.semVer = 0; }
+  else {
+    i.semVer += dt;
+    // Despertar por gatilho/dano fornece uma posição inicial; depois não rastreia através de paredes.
+    i.ultimoVisto ??= { ...j.pos };
+    if (i.semVer >= CHEFE_096.perderDeVista && c.timer <= 0) { entrarBusca(c, i); return []; }
+  }
   if (c.timer > 0) {
     encarar(i, j.pos);
     c.timer -= dt;
     if (c.timer > 0) return [];
     c.timer = 0;
     i.espera = t.cadencia;
-    return aoAlcance(w, i, t, t.alcanceAtaque * 1.2) ? ferirJogador(w, t.dano, i.pos) : [];
+    return vendo && aoAlcance(w, i, t, t.alcanceAtaque * 1.2) ? ferirJogador(w, t.dano, i.pos) : [];
   }
   if (c.naArena && podeInvestir(w, i)) return entrarInvestida(w, c, i);
-  if (aoAlcance(w, i, t, t.alcanceAtaque)) {
+  if (vendo && aoAlcance(w, i, t, t.alcanceAtaque)) {
     encarar(i, j.pos);
     if (i.espera > 0) return [];
     c.timer = t.preparo;
     return [{ tipo: 'inimigo_ataque', id: i.id }];
   }
-  return seguirRota(w, c, i, t, vel, dt);
+  return seguirRota(w, c, i, t, vel, dt, i.ultimoVisto ?? j.pos);
+}
+
+/** Procura perto da última posição vista; só retoma a corrida quando enxerga o jogador. */
+function procurar(w: World, c: EstadoChefe096, i: Inimigo, t: TipoInimigo, lentidao: number, dt: number): SimEvent[] {
+  if (linhaDeVisao(w, i)) {
+    i.ultimoVisto = { ...w.jogador.pos }; i.semVer = 0; i.alvo = null;
+    entrarPerseguicao(c, i); return [];
+  }
+  const origem = i.ultimoVisto ?? i.pos;
+  const destino = i.alvo ?? origem;
+  const eventos = seguirRota(w, c, i, t, CHEFE_096.velocidadeBusca * lentidao, dt, destino);
+  if (c.fase !== 'procurando') return eventos;
+  if (Math.hypot(destino.x - i.pos.x, destino.z - i.pos.z) < IA.chegada || (i.refugio && i.rota.length === 0)) {
+    // Pequeno circuito local, sem consultar a posição escondida do jogador.
+    const direcoes = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+    let achou = false;
+    for (let n = 0; n < direcoes.length; n++) {
+      const [x, z] = direcoes[i.patrulhaI++ % direcoes.length];
+      const ponto = { x: origem.x + x * CELL, z: origem.z + z * CELL };
+      if (!linhaAndavel(w, i, ponto)) continue;
+      i.alvo = ponto; i.rotaEm = 0; achou = true; break;
+    }
+    if (!achou) i.yaw = normalizar(i.yaw + dt * IA.giroOlhando);
+  }
+  return eventos;
 }
 
 /** Para a rota do chefe, portas não contam (ele arromba): só as células fechadas por perigo. */
@@ -163,21 +205,20 @@ function solidoRotaChefe(w: World): Solido {
  * rota até o jogador, vai ao `refugio` (célula alcançável mais próxima dele) e espera virado para
  * ele; a cada recálculo tenta de novo a rota até o jogador.
  */
-function seguirRota(w: World, c: EstadoChefe096, i: Inimigo, t: TipoInimigo, vel: number, dt: number): SimEvent[] {
-  const j = w.jogador;
-  if (linhaAndavel(w, i, j.pos)) {
+function seguirRota(w: World, c: EstadoChefe096, i: Inimigo, t: TipoInimigo, vel: number, dt: number, alvo: Vec2): SimEvent[] {
+  if (linhaAndavel(w, i, alvo)) {
     i.rota = [];
-    andar(w, i, j.pos, vel, dt);
+    andar(w, i, alvo, vel, dt);
     return [];
   }
   if (i.rotaEm <= 0) {
     const solido = solidoRotaChefe(w);
-    let rota = caminho(w.grid, i.pos, j.pos, DEGRAU, solido, SALTO);
-    let destino = j.pos;
+    let rota = caminho(w.grid, i.pos, alvo, DEGRAU, solido, SALTO);
+    let destino = alvo;
     i.refugio = null;
     if (rota === null) {
       // jogador inalcançável: vai à célula alcançável mais próxima dele e espera ali
-      i.refugio = celulaMaisProxima(w, i, j.pos, solido);
+      i.refugio = celulaMaisProxima(w, i, alvo, solido);
       destino = i.refugio;
       rota = caminho(w.grid, i.pos, destino, DEGRAU, solido, SALTO);
     }
@@ -187,7 +228,7 @@ function seguirRota(w: World, c: EstadoChefe096, i: Inimigo, t: TipoInimigo, vel
   }
   const prox = i.rota[0];
   if (!prox) {
-    encarar(i, j.pos);
+    encarar(i, alvo);
     return [];
   }
   const [col, row] = coordDe(prox);
@@ -206,7 +247,7 @@ function seguirRota(w: World, c: EstadoChefe096, i: Inimigo, t: TipoInimigo, vel
     }
   }
   if (andar(w, i, prox, vel, dt)) i.rota.shift();
-  if (i.rota.length === 0 && i.refugio) encarar(i, j.pos);
+  if (i.rota.length === 0 && i.refugio) encarar(i, alvo);
   return [];
 }
 
@@ -307,6 +348,9 @@ export function avancarChefe096(w: World, i: Inimigo, dt: number): SimEvent[] {
     case 'perseguicao':
       eventos = perseguir(w, c, i, t, CHEFE_096.velocidadePerseguicao * lentidao, dt);
       break;
+    case 'procurando':
+      eventos = procurar(w, c, i, t, lentidao, dt);
+      break;
     case 'arrombando':
       eventos = arrombando(w, c, i, dt);
       break;
@@ -320,7 +364,7 @@ export function avancarChefe096(w: World, i: Inimigo, dt: number): SimEvent[] {
       break;
   }
   i.modo = MODO[c.fase];
-  return faseAntes === 'perseguicao' || faseAntes === 'investida' ? [...eventos, ...contarPassos(c, antes, i.pos, CHEFE_096.passoMetros)] : eventos;
+  return faseAntes === 'perseguicao' || faseAntes === 'investida' || faseAntes === 'procurando' ? [...eventos, ...contarPassos(c, antes, i.pos, CHEFE_096.passoMetros)] : eventos;
 }
 
 /** Restauro com o 096 acordado (nem inerte nem morto): volta na `retomada`, `despertando` com `CHEFE_096.retomada`. */
@@ -336,6 +380,7 @@ export function retomarChefe096(w: World): void {
   i.rota = [];
   i.rotaEm = 0;
   i.espera = 0;
+  i.ultimoVisto = { ...w.jogador.pos }; i.semVer = 0; i.alvo = null;
   c.fase = 'despertando';
   i.modo = modoDoChefe(c.fase);
   c.timer = CHEFE_096.retomada;

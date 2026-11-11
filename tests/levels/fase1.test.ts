@@ -299,20 +299,19 @@ describe('fase 1: ajustes do playtest (alarme no fim e leitura das comportas)', 
   });
 });
 
-describe('perseguição (roteiro a 9 m/s da entrada da cela até a triagem)', () => {
-  it('sem fechar portas, o chefe alcança o jogador antes da triagem', () => {
+describe('perseguição com perda de contato visual no trajeto até a triagem', () => {
+  it('ao dobrar os corredores, o chefe busca a última posição vista em vez de rastrear pela parede', () => {
     const r = correrPerseguicao(false);
-    expect(r.alcancou).not.toBeNull();
-    expect(r.alcancou!).toBeLessThan(r.chegadaJogador);
+    expect(Number.isFinite(r.chegadaJogador)).toBe(true);
+    expect(r.procurou).toBe(true);
+    expect(r.alcancou).toBeNull();
   });
 
-  it('fechando E, F e G logo depois de atravessar, o jogador chega à triagem com o chefe a pelo menos 3 s', () => {
+  it('fechar portas permite romper contato e chegar à triagem durante a busca', () => {
     const r = correrPerseguicao(true);
+    expect(Number.isFinite(r.chegadaJogador)).toBe(true);
     expect(r.alcancou).toBeNull();
-    expect(r.chegadaChefe).not.toBeNull();
-    const folga = r.chegadaChefe! - r.chegadaJogador;
-    expect(folga).toBeGreaterThanOrEqual(3);
-    // medido em 10/11/2026: 7,7 s (jogador chega aos 18,2 s; chefe aos 25,9 s)
-    expect(folga).toBeLessThanOrEqual(9);
+    expect(r.procurou).toBe(true);
+    if (r.chegadaChefe !== null) expect(r.chegadaChefe).toBeGreaterThan(r.chegadaJogador);
   });
 });

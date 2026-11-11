@@ -19,6 +19,8 @@ export const CREDITOS = {
     url: 'https://creativecommons.org/licenses/by-sa/3.0/',
   } satisfies Link,
   frases: [
+    'A trilha SCP Terror - Darker Menacing Containment Loop foi fornecida pelo usuário.',
+    'O chefão da fase 1 usa o modelo Meshy fornecido pelo usuário, com animações Mixamo a 60 fps.',
     'A pistola Neon Warden foi fornecida pelo usuário no Meshy e otimizada para primeira pessoa.',
     'A espingarda Worn Tactical Shotgun foi fornecida pelo usuário no Meshy e adaptada para primeira pessoa.',
     'A submetralhadora Rusted Sentinel SMG foi fornecida pelo usuário no Meshy e adaptada para primeira pessoa.',

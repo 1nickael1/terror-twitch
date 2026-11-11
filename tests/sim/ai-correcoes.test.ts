@@ -85,7 +85,7 @@ describe('correção 2: avançador sem rota até o jogador visto', () => {
     rodar(w, 3);
     w.jogador.pos = centro([9, 5]);
     w.jogador.y = 0;
-    rodar(w, 4);
+    rodar(w, 8);
     expect(i.refugio).toBeNull();
     expect(w.jogador.vida).toBeLessThan(100);
   });

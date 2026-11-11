@@ -2,7 +2,7 @@
 import type { ArmaId, TipoMunicao } from './fase';
 
 export const JOGADOR = {
-  raio: 0.3, olhos: 1.6, velocidade: 9, velocidadeDevagar: 3.5, aceleracao: 70, controleNoAr: 0.35,
+  raio: 0.3, olhos: 1.6, velocidade: 5.5, velocidadeDevagar: 2.3, aceleracao: 40, controleNoAr: 0.35,
   gravidade: 22, impulsoSalto: 7.0, pitchMax: 1.4, vidaMax: 100, coleteMax: 100, absorcaoColete: 2 / 3,
   passoMetros: 2.2,
 } as const;
@@ -111,8 +111,9 @@ export const PERIGO_AREA = { pulsoDano: 0.5 } as const;
  */
 export const CHEFE_096 = {
   olharAngulo: (6 * Math.PI) / 180, olharTempo: 1.5, distanciaDespertar: 8, despertar: 2.5,
-  arrombar: 3, investidaVel: 15, investidaMax: 1.6, investidaGolpe: 1.3, pausa: 2.2, retomada: 3,
-  velocidadePerseguicao: 12, preparoInvestida: 0.5, passoMetros: 2.5,
+  arrombar: 3, investidaVel: 8.5, investidaMax: 1.6, investidaGolpe: 1.3, pausa: 2.2, retomada: 3,
+  velocidadePerseguicao: 7, preparoInvestida: 0.5, passoMetros: 2.5,
+  perderDeVista: 2, velocidadeBusca: 1.6,
 } as const;
 /**
  * Chefe da fase 2 (entidade 049). O tipo `entidade049` em `TIPOS` tem vida, velocidade (caminhando), dano do
@@ -128,6 +129,6 @@ export const CHEFE_096 = {
 export const CHEFE_049 = {
   despertar: 2, intervaloReanimar: 8, primeiraReanimacao: 4, intervaloReanimarFerido: 5,
   alcanceReanimar: 14, reanimar: 1.6, levantar: 1.2, vidaReanimado: 0.6, maxLevantados: 4,
-  longe: 10, tempoLonge: 6, velocidadeApressado: 4.5, apressado: 2.5, alcanceToque: 1.4, folgaToque: 1.25,
+  longe: 10, tempoLonge: 6, velocidadeApressado: 3, apressado: 2.5, alcanceToque: 1.4, folgaToque: 1.25,
   passoMetros: 1.2, retomada: 3,
 } as const;

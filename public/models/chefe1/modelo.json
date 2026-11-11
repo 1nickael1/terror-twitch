@@ -1,0 +1,152 @@
+{
+  "origem": "Modelo criado pelo usuário no Meshy; FBX animado Mixamo 60 fps.",
+  "usoNoJogo": {
+    "ataque": "Right_Hand_Sword_Slash",
+    "morte": "Strangled_and_Fall_Forward",
+    "tipo": "entidade096",
+    "altura": 2.4,
+    "busca": "Walking_Scan_with_Sudden_Look_Back",
+    "despertar": "Skill_01",
+    "perseguicao": "run_fast_2"
+  },
+  "arquivoOriginal": "Meshy_AI_Nivel_1_Bloqueado_20261111_animated_mixamo_60fps_All_animation.fbx",
+  "malhas": 1,
+  "vertices": 31230,
+  "triangulos": 10410,
+  "ossos": [
+    "mixamorigHips",
+    "mixamorigSpine",
+    "mixamorigSpine1",
+    "mixamorigSpine2",
+    "mixamorigNeck",
+    "mixamorigHead",
+    "mixamorigHeadTop_End",
+    "headfront",
+    "mixamorigLeftShoulder",
+    "mixamorigLeftArm",
+    "mixamorigLeftForeArm",
+    "mixamorigLeftHand",
+    "mixamorigLeftHandThumb1",
+    "mixamorigLeftHandThumb2",
+    "mixamorigLeftHandThumb3",
+    "mixamorigLeftHandThumb4",
+    "mixamorigLeftHandPinky1",
+    "mixamorigLeftHandPinky2",
+    "mixamorigLeftHandPinky3",
+    "mixamorigLeftHandPinky4",
+    "mixamorigLeftHandRing1",
+    "mixamorigLeftHandRing2",
+    "mixamorigLeftHandRing3",
+    "mixamorigLeftHandRing4",
+    "mixamorigLeftHandMiddle1",
+    "mixamorigLeftHandMiddle2",
+    "mixamorigLeftHandMiddle3",
+    "mixamorigLeftHandMiddle4",
+    "mixamorigLeftHandIndex1",
+    "mixamorigLeftHandIndex2",
+    "mixamorigLeftHandIndex3",
+    "mixamorigLeftHandIndex4",
+    "mixamorigRightShoulder",
+    "mixamorigRightArm",
+    "mixamorigRightForeArm",
+    "mixamorigRightHand",
+    "mixamorigRightHandThumb1",
+    "mixamorigRightHandThumb2",
+    "mixamorigRightHandThumb3",
+    "mixamorigRightHandThumb4",
+    "mixamorigRightHandPinky1",
+    "mixamorigRightHandPinky2",
+    "mixamorigRightHandPinky3",
+    "mixamorigRightHandPinky4",
+    "mixamorigRightHandRing1",
+    "mixamorigRightHandRing2",
+    "mixamorigRightHandRing3",
+    "mixamorigRightHandRing4",
+    "mixamorigRightHandMiddle1",
+    "mixamorigRightHandMiddle2",
+    "mixamorigRightHandMiddle3",
+    "mixamorigRightHandMiddle4",
+    "mixamorigRightHandIndex1",
+    "mixamorigRightHandIndex2",
+    "mixamorigRightHandIndex3",
+    "mixamorigRightHandIndex4",
+    "mixamorigLeftUpLeg",
+    "mixamorigLeftLeg",
+    "mixamorigLeftFoot",
+    "mixamorigLeftToeBase",
+    "mixamorigLeftToe_End",
+    "mixamorigRightUpLeg",
+    "mixamorigRightLeg",
+    "mixamorigRightFoot",
+    "mixamorigRightToeBase",
+    "mixamorigRightToe_End"
+  ],
+  "caixa": {
+    "min": [
+      -1.9118143130783203,
+      -3.523771034055391E-08,
+      -0.23917283299538863
+    ],
+    "max": [
+      1.9118143951502617,
+      2.4799999899588014,
+      0.23917259735038052
+    ],
+    "tamanho": [
+      3.823628708228582,
+      2.480000025196512,
+      0.47834543034576915
+    ]
+  },
+  "animacoes": [
+    {
+      "nome": "Running",
+      "duracao": 0.6333333253860474,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Walking",
+      "duracao": 1.0333333015441895,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Right_Hand_Sword_Slash",
+      "duracao": 1.5,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Skill_01",
+      "duracao": 1.0666667222976685,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Strangled_and_Fall_Forward",
+      "duracao": 9.333333015441895,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Walking_Scan_with_Sudden_Look_Back",
+      "duracao": 6.699999809265137,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "run_fast_2",
+      "duracao": 0.5333333611488342,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    }
+  ],
+  "mapas": {
+    "albedo": "/models/chefe1/albedo.webp",
+    "normal": "/models/chefe1/normal.webp",
+    "rugosidade": "/models/chefe1/rugosidade.webp",
+    "metalicidade": "/models/chefe1/metalicidade.webp"
+  },
+  "bytesModelo": 5205496
+}

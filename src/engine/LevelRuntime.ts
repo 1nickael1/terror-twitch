@@ -28,6 +28,7 @@ import { Atmosfera } from './view/atmosfera';
 import { construirAcabamento } from './view/acabamento';
 import type { AcervoDoutor } from './view/doutor';
 import type { AcervoPolicial } from './view/policial';
+import type { AcervoChefe } from './view/chefe';
 import type { ModelosFechadura } from './view/fechadura';
 
 /** Slots da malha estática que não projetam sombra. */
@@ -56,7 +57,7 @@ export class LevelRuntime {
 
   constructor(deps: {
     fechadura?: ModelosFechadura;
-    scene: Scene; camera: PerspectiveCamera; bank: MaterialBank; texturas: Textures; fase: LevelDef; world: World; doutor?: AcervoDoutor; policial?: AcervoPolicial; pistola?: import('three').Object3D; escopeta?: import('three').Object3D; smg?: import('three').Object3D; lancador?: import('three').Object3D;
+    scene: Scene; camera: PerspectiveCamera; bank: MaterialBank; texturas: Textures; fase: LevelDef; world: World; doutor?: AcervoDoutor; policial?: AcervoPolicial; chefe?: AcervoChefe; pistola?: import('three').Object3D; escopeta?: import('three').Object3D; smg?: import('three').Object3D; lancador?: import('three').Object3D;
   }) {
     const { scene, camera, bank, fase, world } = deps;
     this.scene = scene;
@@ -84,7 +85,7 @@ export class LevelRuntime {
       });
       this.luzes = new LuzesFase(fase, world.grid, this.rec, this.raiz);
       this.decals = new DecalsView(fase, world.grid, this.rec, this.raiz, camera);
-      this.inimigos = new InimigosView(this.rec, this.raiz, deps.doutor, deps.policial);
+      this.inimigos = new InimigosView(this.rec, this.raiz, deps.doutor, deps.policial, deps.chefe);
       this.projeteis = new ProjeteisView(this.rec, this.raiz, camera);
       this.particulas = new ParticulasView(this.rec, this.raiz, camera);
       this.atmosfera = new Atmosfera(world.grid, this.rec, this.raiz);

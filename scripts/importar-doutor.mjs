@@ -1,5 +1,5 @@
 // Importa o FBX Meshy/Mixamo e seus mapas PBR para um GLB leve, com animações preservadas.
-// Uso: node scripts/importar-doutor.mjs caminho/para/pasta-exportada [doutor|policial]
+// Uso: node scripts/importar-doutor.mjs caminho/para/pasta-exportada [doutor|policial|chefe1]
 import { readFile, readdir, mkdir, writeFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { Box3, MeshStandardMaterial, Vector3 } from 'three';
@@ -9,7 +9,7 @@ import sharp from 'sharp';
 
 const pasta = process.argv[2];
 const perfil = process.argv[3] ?? 'doutor';
-if (!['doutor', 'policial'].includes(perfil)) throw new Error('Perfil inválido: use doutor ou policial.');
+if (!['doutor', 'policial', 'chefe1'].includes(perfil)) throw new Error('Perfil inválido: use doutor, policial ou chefe1.');
 if (!pasta) throw new Error('Informe a pasta que contém o FBX e seus quatro mapas PBR.');
 const arquivos = await readdir(pasta);
 const nome = arquivos.find((n) => n.toLowerCase().endsWith('.fbx'));
@@ -54,7 +54,8 @@ const dados = {
   origem: 'Modelo criado pelo usuário no Meshy; FBX animado Mixamo 60 fps.',
   usoNoJogo: perfil === 'doutor'
     ? { tipo: 'funcionario', altura: 1.8, caminhada: 'Unsteady_Walk', corrida: 'Run_02', ataque: 'Avanço do tronco e fechamento dos dois braços, sincronizado ao preparo da IA.' }
-    : { tipo: 'seguranca', altura: 1.8, arma: 'Olive Drab Battle Rifle (Meshy), preso à mão direita e alinhado ao apoio esquerdo; asset em models/arma-policial.' },
+    : perfil === 'policial' ? { tipo: 'seguranca', altura: 1.8, arma: 'Olive Drab Battle Rifle (Meshy), preso à mão direita e alinhado ao apoio esquerdo; asset em models/arma-policial.' }
+    : { tipo: 'entidade096', altura: 2.4, perseguicao: 'run_fast_2', despertar: 'Skill_01', busca: 'Walking_Scan_with_Sudden_Look_Back', ataque: 'Right_Hand_Sword_Slash', morte: 'Strangled_and_Fall_Forward' },
   arquivoOriginal: nome, malhas, vertices, triangulos, ossos,
   ...(perfil === 'policial' ? { animacoesExtras: ['/models/policial/recuo.json'] } : {}),
   caixa: { min: caixa.min.toArray(), max: caixa.max.toArray(), tamanho: medidas.toArray() },

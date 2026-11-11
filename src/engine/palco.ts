@@ -11,6 +11,7 @@ import { createMaterialBank, type MaterialBank } from './materials';
 import { createTextures, listarTexturas, type Textures } from './textures';
 import { AcervoDoutor } from './view/doutor';
 import { AcervoPolicial } from './view/policial';
+import { AcervoChefe } from './view/chefe';
 import { CarregamentoAssets } from './carregamentoAssets';
 import { AcervoPistola } from './view/acervoPistola';
 import { AcervoEscopeta } from './view/acervoEscopeta';
@@ -28,6 +29,7 @@ export class Palco {
   readonly bank: MaterialBank;
   readonly doutor: AcervoDoutor;
   readonly policial: AcervoPolicial;
+  readonly chefe: AcervoChefe;
   readonly pistola: AcervoPistola;
   readonly escopeta: AcervoEscopeta;
   readonly smg: AcervoSMG;
@@ -59,6 +61,7 @@ export class Palco {
     this.bank = createMaterialBank(this.texturas);
     this.doutor = new AcervoDoutor(this.bank, anisotropia, this.carregamento);
     this.policial = new AcervoPolicial(this.bank, anisotropia, this.carregamento);
+    this.chefe = new AcervoChefe(this.bank, anisotropia, this.carregamento);
     this.pistola = new AcervoPistola(this.bank, anisotropia, this.carregamento);
     this.escopeta = new AcervoEscopeta(this.bank, anisotropia, this.carregamento);
     this.smg = new AcervoSMG(this.bank, anisotropia, this.carregamento);
@@ -118,6 +121,7 @@ export class Palco {
     this.lights.dispose();
     this.doutor.dispose();
     this.policial.dispose();
+    this.chefe.dispose();
     this.pistola.dispose();
     this.escopeta.dispose();
     this.smg.dispose();

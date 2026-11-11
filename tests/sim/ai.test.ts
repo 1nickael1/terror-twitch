@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { avancarInimigos, ve } from '../../src/sim/ai/comum';
 import { TIPOS } from '../../src/sim/ai/tipos';
+import { IA } from '../../src/sim/balance';
 import { avancarPortas } from '../../src/sim/doors';
 import { centro } from '../../src/sim/grid';
 import { avancarProjeteis, ferirInimigo } from '../../src/sim/weapons';
@@ -74,7 +75,7 @@ describe('estados', () => {
     const w = mundo();
     const i = porInimigo(w, 'funcionario', [7, 1]);
     i.yaw = OESTE;
-    const tipos = rodar(w, 4);
+    const tipos = rodar(w, 7);
     expect(tipos).toEqual(expect.arrayContaining(['inimigo_alerta', 'inimigo_ataque', 'dano_jogador']));
     expect(w.jogador.vida).toBeLessThan(100);
   });
@@ -101,7 +102,7 @@ describe('estados', () => {
     w.jogador.pos = centro([4, 2]);
     const i = porInimigo(w, 'funcionario', [8, 2]);
     i.modo = 'perseguicao';
-    rodar(w, 3);
+    rodar(w, 5);
     expect(Math.hypot(i.pos.x - w.jogador.pos.x, i.pos.z - w.jogador.pos.z)).toBeLessThan(2.5);
   });
 
@@ -221,7 +222,7 @@ describe('perda de vista', () => {
     const i = porInimigo(w, 'funcionario', [8, 3]);
     rodar(w, 0.1, [{ pos: centro([6, 3]), raio: 24 }]);
     expect(i.modo).toBe('suspeita');
-    rodar(w, 2);                                 // chega (4 m a 60% da velocidade ≈ 1,5 s) e começa a olhar
+    rodar(w, 4 / (TIPOS.funcionario.velocidade * .6)); // chega ao ponto do som na nova velocidade
     expect(i.modo).toBe('suspeita');
     expect(dist(i.pos, centro([6, 3]))).toBeLessThan(0.01);
     rodar(w, 2);
@@ -249,7 +250,7 @@ describe('portas', () => {
     const w = criarWorld(faseMinima(COM_PORTA, { portas: [{ id: 'p', em: 'D' }] }));
     const i = porInimigo(w, 'funcionario', [2, 3]);
     i.modo = 'perseguicao';
-    rodarComPortas(w, 6);
+    rodarComPortas(w, 10);
     expect(w.portas[0].estado).toBe('aberta');
     expect(dist(i.pos, w.jogador.pos)).toBeLessThan(2.5);
   });
@@ -274,7 +275,7 @@ describe('patrulha', () => {
     let chegouEmB = -1;
     let voltouParaA = -1;
     let maiorPasso = 0;
-    for (let k = 0; k < 12 / dt; k++) {
+    for (let k = 0; k < 18 / (TIPOS.funcionario.velocidade * .4) / dt; k++) {
       const antes = { ...i.pos };
       avancarInimigos(w, [], dt);
       maiorPasso = Math.max(maiorPasso, dist(antes, i.pos));
@@ -426,12 +427,13 @@ describe('limite de cálculo de rota', () => {
     expect(i.pos.z).toBeGreaterThan(6);
   });
 
-  it('perseguição com visão direta calcula rota no máximo 9 vezes em 2 s', () => {
+  it('perseguição com visão direta respeita o intervalo de rota até alcançar o jogador', () => {
     const w = mundo();
     const i = porInimigo(w, 'funcionario', [5, 1]);   // 8 m em linha reta: chega em ~1,5 s
     i.modo = 'perseguicao';
-    rodar(w, 2);
-    expect(i.rotasCalculadas).toBeLessThanOrEqual(9);
+    const duracao = 8 / TIPOS.funcionario.velocidade + .2;
+    rodar(w, duracao);
+    expect(i.rotasCalculadas).toBeLessThanOrEqual(Math.ceil(duracao / IA.intervaloRota) + 1);
     expect(dist(i.pos, w.jogador.pos)).toBeLessThanOrEqual(TIPOS.funcionario.alcanceAtaque + 0.1);
   });
 
@@ -478,7 +480,7 @@ describe('perseguição sem ver', () => {
     expect(i.modo).toBe('perseguicao');
     const visto = { ...w.jogador.pos };
     w.jogador.pos = centro([1, 1]);              // some no cubículo lacrado, longe dali
-    rodar(w, 3);
+    rodar(w, 10 / TIPOS.funcionario.velocidade + .1);
     expect(i.modo).toBe('suspeita');
     expect(i.alvo).toEqual(visto);
     expect(dist(i.pos, visto)).toBeLessThan(0.75);
@@ -553,7 +555,7 @@ describe('ruído repetido', () => {
       andado += dist(antes, i.pos);
     }
     expect(i.modo).toBe('suspeita');
-    expect(andado).toBeGreaterThanOrEqual(6);
+    expect(andado).toBeGreaterThanOrEqual(TIPOS.funcionario.velocidade * IA.fracaoSuspeita * 2.9);
   });
 });
 

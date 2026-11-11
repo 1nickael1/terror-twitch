@@ -55,7 +55,7 @@ export interface Inimigo {
   jaMorreu: boolean;           // já entrou em `stats.mortos` uma vez (regra da reanimação na C3.2)
   contado: boolean;            // já entrou em `stats.totalInimigos` (corpo `corpo: true` só ao levantar; C3.2)
 }
-export type FaseChefe096 = 'inerte' | 'despertando' | 'perseguicao' | 'arrombando' | 'investida' | 'pausa' | 'morto';
+export type FaseChefe096 = 'inerte' | 'despertando' | 'perseguicao' | 'procurando' | 'arrombando' | 'investida' | 'pausa' | 'morto';
 /** Nome antigo da fase do 096 (views e poses do chefe da fase 1). */
 export type FaseChefe = FaseChefe096;
 export type FaseChefe049 = 'inerte' | 'despertando' | 'caminhando' | 'tocando' | 'reanimando' | 'apressado' | 'morto';

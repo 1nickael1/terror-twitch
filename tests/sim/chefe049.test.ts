@@ -54,7 +54,7 @@ function prontoParaReanimar(w: World): void {
 describe('tipo e registro', () => {
   it('TIPOS.entidade049 com os números do adendo', () => {
     expect(TIPOS.entidade049).toMatchObject({
-      arquetipo: 'avancador', vida: 1100, velocidade: 2.2, raio: 0.4, altura: 2.0, visao: 40, visaoEscuro: 40,
+      arquetipo: 'avancador', vida: 1100, velocidade: 1.5, raio: 0.4, altura: 2.0, visao: 40, visaoEscuro: 40,
       cone: 2 * Math.PI, audicao: 0, dano: 85, alcanceAtaque: 1.4, cadencia: 2.2, preparo: 0.9, dor: 0,
       projetil: null, reanimavel: false,
     });
@@ -64,7 +64,7 @@ describe('tipo e registro', () => {
     expect(CHEFE_049).toMatchObject({
       despertar: 2, intervaloReanimar: 8, primeiraReanimacao: 4, intervaloReanimarFerido: 5, alcanceReanimar: 14,
       reanimar: 1.6, levantar: 1.2, vidaReanimado: 0.6, maxLevantados: 4, longe: 10, tempoLonge: 6,
-      velocidadeApressado: 4.5, apressado: 2.5, alcanceToque: 1.4, folgaToque: 1.25, passoMetros: 1.2,
+      velocidadeApressado: 3, apressado: 2.5, alcanceToque: 1.4, folgaToque: 1.25, passoMetros: 1.2,
     });
   });
 
@@ -116,13 +116,13 @@ describe('despertar', () => {
 });
 
 describe('caminhando e toque', () => {
-  it('caminha até o jogador a 2,2 m/s', () => {
+  it('caminha até o jogador na velocidade reduzida do tipo', () => {
     const w = mundo([10, 1]);
     executar(w, { acao: 'chefe' });
     rodar(w, 2);
     const x0 = chefeDe(w).pos.x;
     rodar(w, 1);
-    expect(x0 - chefeDe(w).pos.x).toBeCloseTo(2.2, 1);
+    expect(x0 - chefeDe(w).pos.x).toBeCloseTo(TIPOS.entidade049.velocidade, 1);
   });
 
   it('toque: chefe_toque, 0,9 s de preparo e depois o dano configurado (85)', () => {
@@ -356,7 +356,7 @@ describe('reanimação', () => {
 });
 
 describe('pressa', () => {
-  it('jogador longe por mais de 6 s: apressado a 4,5 m/s por 2,5 s, depois caminhando com longe 0', () => {
+  it('jogador longe por mais de 6 s: apressado na nova velocidade por 2,5 s, depois caminhando com longe 0', () => {
     const w = mundo([19, 2]);
     executar(w, { acao: 'chefe' });
     rodar(w, 2);
@@ -369,7 +369,7 @@ describe('pressa', () => {
     expect(chefeDe(w).modo).toBe('perseguicao');
     const x0 = chefeDe(w).pos.x;
     rodar(w, 1);
-    expect(x0 - chefeDe(w).pos.x).toBeCloseTo(4.5, 1);
+    expect(x0 - chefeDe(w).pos.x).toBeCloseTo(CHEFE_049.velocidadeApressado, 1);
     rodar(w, 1.55);
     expect(c049(w).fase).toBe('caminhando');
     expect(c049(w).longe).toBeLessThan(0.1);
@@ -379,8 +379,9 @@ describe('pressa', () => {
     const w = mundo([19, 2]);
     executar(w, { acao: 'chefe' });
     rodar(w, 2);
-    const ev = rodar(w, 2.4);   // ~5,3 m
-    expect(ev.filter((e) => e.tipo === 'chefe_passo')).toHaveLength(4);
+    const ev = rodar(w, 2.4);
+    // O primeiro passo é a transição do despertar; os demais contam distância percorrida.
+    expect(ev.filter((e) => e.tipo === 'chefe_passo')).toHaveLength(Math.floor(TIPOS.entidade049.velocidade * (2.4 - PASSO) / CHEFE_049.passoMetros));
   });
 });
 

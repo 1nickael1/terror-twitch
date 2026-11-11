@@ -33,7 +33,7 @@ describe('step', () => {
     const w = criarWorld(FASE);
     const tipos: string[] = [];
     tipos.push(...rodar(w, { ...INPUT_VAZIO, usar: true }, 1));          // documento ao lado
-    tipos.push(...rodar(w, { ...INPUT_VAZIO, frente: 1 }, 40));          // encosta na porta
+    tipos.push(...rodar(w, { ...INPUT_VAZIO, frente: 1 }, 90));          // encosta na porta na nova velocidade
     tipos.push(...rodar(w, { ...INPUT_VAZIO, usar: true }, 1));
     tipos.push(...rodar(w, { ...INPUT_VAZIO, frente: 1 }, 240));
     expect(tipos).toEqual(expect.arrayContaining(['documento', 'porta', 'checkpoint', 'segredo', 'fase_concluida']));
