@@ -104,7 +104,7 @@ export function step(w: World, input: InputFrame, dt: number): SimEvent[] {
 
   // 10. saída (com chefe, só depois de morto)
   const chefeVivo = w.chefe !== null && w.chefe.fase !== 'morto';
-  if (w.estado === 'jogando' && !chefeVivo && naCelula(w.jogador.pos, w.fase.saida)) {
+  if (w.estado === 'jogando' && !w.fase.treino && !chefeVivo && naCelula(w.jogador.pos, w.fase.saida)) {
     w.estado = 'concluida';
     eventos.push({ tipo: 'fase_concluida' });
   }

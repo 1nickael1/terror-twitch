@@ -78,7 +78,7 @@ describe('portas: comandos e usar (complemento)', () => {
     expect(comandarPorta(w, 'd1', 'trancar')).toEqual([{ tipo: 'porta', id: 'd1', estado: 'fechando' }]);
     esperar(w, 1);
     expect(w.portas[0].estado).toBe('trancada');
-    expect(comandarPorta(w, 'd1', 'destrancar')).toEqual([{ tipo: 'porta', id: 'd1', estado: 'fechada' }]);
+    expect(comandarPorta(w, 'd1', 'destrancar')).toEqual([{ tipo: 'porta_desbloqueada', id: 'd1' }, { tipo: 'porta', id: 'd1', estado: 'fechada' }]);
   });
 
   it('fechando espera o vão ficar livre', () => {

@@ -2,6 +2,7 @@ import { CanvasTexture, NoColorSpace, RepeatWrapping, SRGBColorSpace, type Textu
 import { texturaAzulejo, texturaComporta } from './view/texturasCenario';
 import { TEXTURAS, urlTextura, type TexturaId } from './catalogoTexturas';
 import { carregarTextura } from './carregarTextura';
+import type { CarregamentoAssets } from './carregamentoAssets';
 
 export interface Superficie { map: CanvasTexture; bumpMap: CanvasTexture; roughnessMap: CanvasTexture }
 
@@ -50,7 +51,7 @@ function speckle(g: CanvasRenderingContext2D, s: number, r: () => number, n: num
   g.globalAlpha = 1;
 }
 
-export function createTextures(): Textures {
+export function createTextures(carregamento?: CarregamentoAssets): Textures {
   const concreto = make(512, (g, s) => {
     const r = rng(1);
     g.fillStyle = '#6d6b66';
@@ -184,9 +185,9 @@ export function createTextures(): Textures {
     };
     const bumpMap = dados('#808080');
     const roughnessMap = dados('#ffffff');
-    carregarTextura(map, urlTextura(id, 'albedo'));
-    carregarTextura(bumpMap, urlTextura(id, 'relevo'));
-    carregarTextura(roughnessMap, urlTextura(id, 'rugosidade'));
+    carregarTextura(map, urlTextura(id, 'albedo'), carregamento);
+    carregarTextura(bumpMap, urlTextura(id, 'relevo'), carregamento);
+    carregarTextura(roughnessMap, urlTextura(id, 'rugosidade'), carregamento);
     return [id, { map, bumpMap, roughnessMap }];
   })) as Record<TexturaId, Superficie>;
   return { concreto, azulejo, piso, teto, porta, placa, superficies };

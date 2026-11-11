@@ -27,6 +27,8 @@ import { Recursos } from './view/recursos';
 import { Atmosfera } from './view/atmosfera';
 import { construirAcabamento } from './view/acabamento';
 import type { AcervoDoutor } from './view/doutor';
+import type { AcervoPolicial } from './view/policial';
+import type { ModelosFechadura } from './view/fechadura';
 
 /** Slots da malha estática que não projetam sombra. */
 const SEM_SOMBRA = new Set(['vidro', 'tela', 'papel']);
@@ -53,7 +55,8 @@ export class LevelRuntime {
   private descartado = false;
 
   constructor(deps: {
-    scene: Scene; camera: PerspectiveCamera; bank: MaterialBank; texturas: Textures; fase: LevelDef; world: World; doutor?: AcervoDoutor;
+    fechadura?: ModelosFechadura;
+    scene: Scene; camera: PerspectiveCamera; bank: MaterialBank; texturas: Textures; fase: LevelDef; world: World; doutor?: AcervoDoutor; policial?: AcervoPolicial; pistola?: import('three').Object3D; escopeta?: import('three').Object3D; smg?: import('three').Object3D; lancador?: import('three').Object3D;
   }) {
     const { scene, camera, bank, fase, world } = deps;
     this.scene = scene;
@@ -68,7 +71,7 @@ export class LevelRuntime {
     try {
       const co = new Coletor();
       const instancias = construirFase(world.grid, co);
-      this.portas = new PortasView(world, this.rec, co, this.raiz);
+      this.portas = new PortasView(world, this.rec, co, this.raiz, deps.fechadura);
       construirObjetos(fase, world.grid, co);
       construirAcabamento(world.grid, co);
       co.finalizar(this.rec, this.raiz, SEM_SOMBRA, slotsDoRevestimento(fase.ambiente.revestimento));
@@ -76,17 +79,19 @@ export class LevelRuntime {
       this.comportas = new ComportasView(fase, world.grid, this.rec, this.raiz);
       construirProps(fase, world.grid, this.rec, this.raiz);
 
-      this.pickups = new PickupsView(world, this.rec, this.raiz);
+      this.pickups = new PickupsView(world, this.rec, this.raiz, {
+        pistola: deps.pistola, escopeta: deps.escopeta, smg: deps.smg, lancador: deps.lancador,
+      });
       this.luzes = new LuzesFase(fase, world.grid, this.rec, this.raiz);
       this.decals = new DecalsView(fase, world.grid, this.rec, this.raiz, camera);
-      this.inimigos = new InimigosView(this.rec, this.raiz, deps.doutor);
+      this.inimigos = new InimigosView(this.rec, this.raiz, deps.doutor, deps.policial);
       this.projeteis = new ProjeteisView(this.rec, this.raiz, camera);
       this.particulas = new ParticulasView(this.rec, this.raiz, camera);
       this.atmosfera = new Atmosfera(world.grid, this.rec, this.raiz);
       this.perigosArea = new PerigosAreaView(fase, world.grid, this.rec, this.raiz, this.particulas);
       // presos à câmera (fora da raiz): descartados à parte
       clarao = new ClaraoCano(camera);
-      armas = new ArmasView(this.rec, camera, clarao);
+      armas = new ArmasView(this.rec, camera, clarao, deps.pistola, deps.escopeta, deps.smg, deps.lancador);
       this.clarao = clarao;
       this.armas = armas;
       scene.add(this.raiz);

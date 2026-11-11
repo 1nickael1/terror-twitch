@@ -1,0 +1,6 @@
+{
+  "origem": "Arquivos fornecidos pelo usuário; originais preservados em Downloads.",
+  "ataque.mp3": { "arquivo": "phatphrogstudio-zombie-voice-growl-477834.mp3", "inicioOriginal": 0.34, "fimOriginal": 1.7 },
+  "morte.mp3": { "arquivo": "phatphrogstudio-zombie-voice-idle-moans-2-no-ai-479321.mp3", "inicioOriginal": 0.47, "fimOriginal": 2.6 },
+  "ajuste": "Silêncio inicial e final removidos, timestamps zerados antes dos fades curtos. Reprodução posicional no médico."
+}

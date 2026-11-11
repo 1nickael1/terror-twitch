@@ -9,6 +9,7 @@ import { Opcoes } from './Opcoes';
 import { Controles } from './Controles';
 
 export interface PausaProps {
+  estande?: boolean;
   nomeFase: string;
   travaRecusada: boolean;
   opcoes: OpcoesT;
@@ -16,8 +17,8 @@ export interface PausaProps {
   definirOpcoes: (p: Partial<OpcoesT>) => void;
 }
 
-function Raiz({ nomeFase, travaRecusada, comando, abrirOpcoes, abrirControles }: {
-  nomeFase: string; travaRecusada: boolean; comando: PausaProps['comando']; abrirOpcoes: () => void; abrirControles: () => void;
+function Raiz({ nomeFase, travaRecusada, comando, abrirOpcoes, abrirControles, estande }: {
+  nomeFase: string; travaRecusada: boolean; comando: PausaProps['comando']; abrirOpcoes: () => void; abrirControles: () => void; estande?: boolean;
 }) {
   // Esc aqui não retoma: o navegador recusa a trava do ponteiro pedida pela tecla Esc
   const ref = useNavegacaoMenu<HTMLDivElement>();
@@ -28,6 +29,7 @@ function Raiz({ nomeFase, travaRecusada, comando, abrirOpcoes, abrirControles }:
         <p className={css.rotulo}>Operação suspensa · {nomeFase}</p>
         <h2 id={titulo} className={css.h2}>Pausa</h2>
         <ul className={css.lista} role="menu" aria-label="Pausa">
+          {estande && <li role="none"><button type="button" role="menuitem" className={css.item} onClick={() => comando({ c: 'reiniciar_estande' })}>Reiniciar estande</button></li>}
           <li role="none"><button type="button" role="menuitem" className={css.item} onClick={() => comando({ c: 'retomar' })}>Continuar</button></li>
           <li role="none"><button type="button" role="menuitem" className={css.item} onClick={abrirOpcoes}>Opções</button></li>
           <li role="none"><button type="button" role="menuitem" className={css.item} onClick={abrirControles}>Controles</button></li>
@@ -43,10 +45,10 @@ function Raiz({ nomeFase, travaRecusada, comando, abrirOpcoes, abrirControles }:
   );
 }
 
-export function Pausa({ nomeFase, travaRecusada, opcoes, comando, definirOpcoes }: PausaProps) {
+export function Pausa({ nomeFase, travaRecusada, opcoes, comando, definirOpcoes, estande }: PausaProps) {
   const [emOpcoes, setEmOpcoes] = useState(false);
   const [emControles, setEmControles] = useState(false);
   if (emControles) return <Controles voltar={() => setEmControles(false)} />;
   if (emOpcoes) return <Opcoes opcoes={opcoes} definir={definirOpcoes} voltar={() => setEmOpcoes(false)} />;
-  return <Raiz nomeFase={nomeFase} travaRecusada={travaRecusada} comando={comando} abrirOpcoes={() => setEmOpcoes(true)} abrirControles={() => setEmControles(true)} />;
+  return <Raiz nomeFase={nomeFase} travaRecusada={travaRecusada} comando={comando} estande={estande} abrirOpcoes={() => setEmOpcoes(true)} abrirControles={() => setEmControles(true)} />;
 }

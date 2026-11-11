@@ -1,95 +1,22 @@
 import {
-  AnimationMixer, Box3, CanvasTexture, Group, LoopOnce, LoopRepeat, NoColorSpace, Quaternion,
-  SRGBColorSpace, Vector2, Vector3, type AnimationAction, type AnimationClip, type Bone,
-  type Material, type Object3D, type Skeleton, type SkinnedMesh,
+  AnimationMixer, Box3, Group, LoopOnce, LoopRepeat, Quaternion,
+  Vector3, type AnimationAction, type AnimationClip, type Bone,
+  type Object3D, type Skeleton, type SkinnedMesh,
 } from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { Inimigo } from '../../sim/world';
 import { TIPOS } from '../../sim/ai/tipos';
-import { carregarTextura } from '../carregarTextura';
 import type { MaterialBank } from '../materials';
 import { animacaoDoDoutor, prepararAnimacoesDoutor } from './doutorAnimacoes';
 import type { Recursos } from './recursos';
+import { AcervoHumano } from './acervoHumano';
+import type { CarregamentoAssets } from '../carregamentoAssets';
 
-function descartarModelo(raiz: Object3D, materiais = false): void {
-  const geometrias = new Set<SkinnedMesh['geometry']>();
-  const esqueletos = new Set<Skeleton>();
-  const mats = new Set<Material>();
-  raiz.traverse((o) => {
-    const m = o as SkinnedMesh;
-    if (!m.isMesh) return;
-    geometrias.add(m.geometry);
-    if (m.isSkinnedMesh) esqueletos.add(m.skeleton);
-    if (materiais) for (const mat of Array.isArray(m.material) ? m.material : [m.material]) mats.add(mat);
-  });
-  for (const g of geometrias) g.dispose();
-  for (const s of esqueletos) s.dispose();
-  for (const m of mats) m.dispose();
-}
-
-/** Acervo da engine: geometria e texturas compartilhadas, com um esqueleto independente por inimigo. */
-export class AcervoDoutor {
-  readonly pronto: Promise<void>;
-  estado: 'carregando' | 'pronto' | 'erro' = 'carregando';
-  erro = '';
-  private modelo: Object3D | null = null;
-  private clips: AnimationClip[] = [];
-  private descartado = false;
-
-  constructor(bank: MaterialBank, anisotropia = 4) {
-    const textura = (id: string, cor: string, dados: boolean) => {
-      const c = document.createElement('canvas'); c.width = c.height = 2;
-      const g = c.getContext('2d');
-      if (!g) throw new Error('Canvas 2D indisponível');
-      g.fillStyle = cor; g.fillRect(0, 0, 2, 2);
-      const t = new CanvasTexture(c);
-      t.colorSpace = dados ? NoColorSpace : SRGBColorSpace;
-      // O UV foi preservado do FBX, cujas imagens usam flipY; não são imagens embutidas de glTF.
-      t.flipY = true;
-      t.anisotropy = anisotropia;
-      carregarTextura(t, `/models/doutor/${id}.webp`);
-      return t;
-    };
-    const map = textura('albedo', '#d4cfc2', false);
-    const def = {
-      map, normalMap: textura('normal', '#8080ff', true), normalScale: new Vector2(.65, .65),
-      roughnessMap: textura('rugosidade', '#ffffff', true), metalnessMap: textura('metalicidade', '#000000', true),
-      color: 0xffffff, roughness: .95, metalness: 1,
-    };
-    bank.define('doutor', def);
-    bank.define('doutor-dor', { ...def, emissive: 0x9c5144, emissiveMap: map, emissiveIntensity: .35 });
-    this.pronto = this.carregar();
-  }
-
-  criar(rec: Recursos): InstanciaDoutor | null {
-    return !this.descartado && this.modelo ? new InstanciaDoutor(this.modelo, this.clips, rec) : null;
-  }
-
-  dispose(): void {
-    this.descartado = true;
-    if (this.modelo) descartarModelo(this.modelo);
-    this.modelo = null; this.clips = [];
-  }
-
-  private async carregar(): Promise<void> {
-    try {
-      const gltf = await new GLTFLoader().loadAsync('/models/doutor/doutor.glb');
-      if (this.descartado) { descartarModelo(gltf.scene, true); return; }
-      const materiais = new Set<Material>();
-      gltf.scene.traverse((o) => {
-        const m = o as SkinnedMesh;
-        if (m.isMesh) for (const mat of Array.isArray(m.material) ? m.material : [m.material]) materiais.add(mat);
-      });
-      for (const m of materiais) m.dispose();
-      this.modelo = gltf.scene;
-      this.clips = prepararAnimacoesDoutor(gltf.animations);
-      this.estado = 'pronto';
-    } catch (e) {
-      if (this.descartado) return;
-      this.estado = 'erro'; this.erro = e instanceof Error ? e.message : String(e);
-      console.warn('Modelo do doutor indisponível; usando o modelo de contingência.', e);
-    }
+/** Acervo do médico, com os recursos e o carregamento comuns aos humanos importados. */
+export class AcervoDoutor extends AcervoHumano<InstanciaDoutor> {
+  constructor(bank: MaterialBank, anisotropia = 4, carregamento?: CarregamentoAssets) {
+    super({ id: 'doutor', bank, anisotropia, carregamento, preparar: prepararAnimacoesDoutor,
+      instanciar: (modelo, clips, rec) => new InstanciaDoutor(modelo, clips, rec) });
   }
 }
 

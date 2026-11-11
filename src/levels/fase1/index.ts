@@ -95,7 +95,6 @@ export const fase1: LevelDef = {
       quando: { tipo: 'area', area: [26, 1, 5, 3] },
       faz: [
         { acao: 'alarme', ligado: true },
-        { acao: 'som', id: 'sirene_curta' },
         { acao: 'mensagem', texto: MENSAGENS.alarme },
       ],
     },
@@ -135,7 +134,7 @@ export const fase1: LevelDef = {
       faz: [
         { acao: 'chefe' },
         { acao: 'porta', id: 'cela-isolada', estado: 'abrir' },
-        // religa o alarme (já ligado): a sirene volta a soar por SIRENE.duracao no início da perseguição
+        // Reativar o alarme toca o arquivo da sirene uma vez no início da perseguição.
         { acao: 'alarme', ligado: true },
         { acao: 'mensagem', texto: MENSAGENS.desperta },
       ],

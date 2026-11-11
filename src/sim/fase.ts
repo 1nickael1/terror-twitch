@@ -10,6 +10,7 @@ export interface PortaDef { id: string; em: Onde; exige?: NivelCartao; trancada?
 export type PickupTipo = 'vida_p' | 'vida_g' | 'colete_p' | 'colete_g' | 'municao' | 'arma' | 'cartao';
 export interface PickupDef { em: Onde; tipo: PickupTipo; municao?: TipoMunicao; quantidade?: number; arma?: ArmaId; nivel?: NivelCartao }
 export interface InimigoDef {
+  imovel?: boolean;     // exposição no estande: mantém o tipo/modelo, sem perseguir ou atacar
   em: Onde; tipo: string; grupo?: string; patrulha?: Coord[]; dormindo?: boolean; yaw?: number;
   corpo?: boolean;       // começa morto no chão (só tipo `reanimavel`; regra na C3.2)
 }
@@ -82,6 +83,7 @@ export interface ChefeDef {
   perigos: PerigoDef[];
 }
 export interface LevelDef {
+  treino?: { vidaInicial: number };
   id: string; nome: string; planta: string; legenda: Record<string, CelulaDef>; spawnYaw: number;
   arsenal: { armas: ArmaId[]; municao: Partial<Record<TipoMunicao, number>> };
   portas: PortaDef[]; pickups: PickupDef[]; inimigos: InimigoDef[]; gatilhos: GatilhoDef[];

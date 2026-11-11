@@ -1,0 +1,11 @@
+{
+  "origem": "Meshy_AI_Nivel_1_Bloqueado_1111200926_texture.blend, fornecido pelo usuário",
+  "arquivo": "fechadura.glb",
+  "variantes": ["nivel1-bloqueada", "nivel1-liberada", "nivel2-bloqueada", "nivel2-liberada", "nivel3-bloqueada", "nivel3-liberada"],
+  "edicao": "Variante liberada criada pelo MCP do Blender: LED verde emissivo, inscrição LIBERADO e mapas PBR preservados.",
+  "uso": "Uma malha compartilhada pelos leitores dos níveis 1, 2 e 3; o material identifica o nível e o estado da porta.",
+  "fontes": ["assets/fechadura-nivel1/", "assets/fechadura-nivel2/", "assets/fechadura-nivel3/"],
+  "nivel2": "Derivado da malha original pelo MCP do Blender, seguindo a referência laranja NÍVEL 2. Inscrição refeita sem riscos sobre as letras.",
+  "nivel3": "Derivado pelo MCP do Blender seguindo a referência roxa NÍVEL 3; estados bloqueado e liberado com LED verde emissivo.",
+  "texturasNoJogo": "Mapas 2048 px convertidos para WebP; cor em qualidade 94, mapas de superfície sem perdas. Geometria e UV preservados."
+}

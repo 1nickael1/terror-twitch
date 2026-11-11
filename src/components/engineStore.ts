@@ -2,6 +2,7 @@
 // trocado quando um campo exibido muda; nada por quadro passa pelo React além disso.
 import { Engine, type EngineEvent } from '../engine/Engine';
 import { Game } from '../engine/Game';
+import type { ProgressoAssets } from '../engine/carregamentoAssets';
 import type { VisualStyle } from '../looks/types';
 import { carregarOpcoes, OPCOES_PADRAO, salvarOpcoes, sanear, type Armazenamento, type Opcoes } from '../save/opcoes';
 import type { Progresso } from '../save/progresso';
@@ -16,6 +17,7 @@ const GRAVAR_OPCOES_MS = 300;
 
 export interface HudSnapshot {
   pronto: boolean; erro: string | null; tela: Tela; fase: number; nomeFase: string; travado: boolean;
+  carregamento: ProgressoAssets;
   vida: number; colete: number; arma: ArmaId; municao: number; armas: ArmaId[]; cartoes: NivelCartao[];
   mensagem: string | null; documento: DocumentoDef | null;
   /** instante (performance.now) do último dano; 0 = nenhum */
@@ -32,6 +34,7 @@ export interface HudSnapshot {
 
 const INICIAL: HudSnapshot = Object.freeze({
   pronto: false, erro: null, tela: 'titulo', fase: 0, nomeFase: '', travado: false,
+  carregamento: { concluidos: 0, total: 0 },
   vida: 0, colete: 0, arma: 'pistola', municao: 0, armas: [], cartoes: [],
   mensagem: null, documento: null, danoEm: 0, danoLado: null,
   stats: null, totais: null,
@@ -67,6 +70,7 @@ export class EngineStore {
   private engine: Engine | null = null;
   private game: Game | null = null;
   private off: (() => void) | null = null;
+  private offCarregamento: (() => void) | null = null;
   private armazenamento: Armazenamento | null = null;
   private snap: HudSnapshot = INICIAL;
   private mensagemEm = 0;
@@ -88,8 +92,9 @@ export class EngineStore {
 
   getServerSnapshot = (): HudSnapshot => INICIAL;
 
-  attach(canvas: HTMLCanvasElement): void {
+  async attach(canvas: HTMLCanvasElement): Promise<void> {
     this.detach();
+    this.set({ pronto: false, erro: null, carregamento: { concluidos: 0, total: 0 } });
     const a = armazenamentoDoNavegador();
     this.armazenamento = a;
     const opcoes = carregarOpcoes(a, this.styles.map((s) => s.id));
@@ -100,12 +105,19 @@ export class EngineStore {
       engine = new Engine(canvas, this.styles, opcoes);
       this.off = engine.on(this.onEvent);
       this.engine = engine;
+      this.offCarregamento = engine.carregamento.subscribe(carregamento => this.set({ carregamento }));
+      await engine.carregamento.pronto;
+      // Strict Mode, saída da página ou nova tentativa podem ter substituído esta engine.
+      if (this.engine !== engine) return;
+      this.offCarregamento?.(); this.offCarregamento = null;
       this.game = new Game(engine, a, () => this.lerGame());
       engine.start();
       this.set({ pronto: true, erro: null, opcoes, filtro: engine.filtro, mensagem: null });
       this.lerGame();
       this.lerWorld();
     } catch (err) {
+      if (engine && this.engine !== engine) return;
+      this.offCarregamento?.(); this.offCarregamento = null;
       this.off?.();
       this.off = null;
       engine?.dispose();
@@ -116,6 +128,7 @@ export class EngineStore {
   }
 
   detach(): void {
+    this.offCarregamento?.(); this.offCarregamento = null;
     this.gravarOpcoesPendentes();
     window.removeEventListener('pagehide', this.onPagehide);
     this.game?.dispose();
@@ -158,7 +171,10 @@ export class EngineStore {
     if (ev.type === 'travado') this.set({ travado: ev.travado });
     else if (ev.type === 'filtro') this.set({ filtro: ev.id });
     // troca de fase: a barra do chefe some (a fase nova recria a dela, se tiver chefe acordado)
-    else if (ev.type === 'fase') this.set({ mensagem: null, danoEm: 0, danoLado: null, chefe: null, dicaUso: null });
+    else if (ev.type === 'fase') {
+      this.set({ mensagem: null, danoEm: 0, danoLado: null, chefe: null, dicaUso: null });
+      this.lerWorld();
+    }
     else if (ev.type === 'eventos') this.lerEventos(ev.eventos);
     else if (ev.type === 'quadro') {
       if (this.snap.mensagem !== null && performance.now() - this.mensagemEm > this.mensagemMs) this.set({ mensagem: null });

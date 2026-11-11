@@ -10,6 +10,13 @@ import { LightRig, SOMBRA_POR_QUALIDADE } from './lights';
 import { createMaterialBank, type MaterialBank } from './materials';
 import { createTextures, listarTexturas, type Textures } from './textures';
 import { AcervoDoutor } from './view/doutor';
+import { AcervoPolicial } from './view/policial';
+import { CarregamentoAssets } from './carregamentoAssets';
+import { AcervoPistola } from './view/acervoPistola';
+import { AcervoEscopeta } from './view/acervoEscopeta';
+import { AcervoSMG } from './view/acervoSMG';
+import { AcervoLancador } from './view/acervoLancador';
+import { AcervoFechadura } from './view/acervoFechadura';
 
 const ESCALA_POR_QUALIDADE: Record<Qualidade, number> = { baixa: 0.6, media: 0.8, alta: 1 };
 
@@ -20,13 +27,19 @@ export class Palco {
   readonly texturas: Textures;
   readonly bank: MaterialBank;
   readonly doutor: AcervoDoutor;
+  readonly policial: AcervoPolicial;
+  readonly pistola: AcervoPistola;
+  readonly escopeta: AcervoEscopeta;
+  readonly smg: AcervoSMG;
+  readonly lancador: AcervoLancador;
+  readonly fechadura: AcervoFechadura;
   readonly lights: LightRig;
   private readonly pipeline: PostPipeline;
   private readonly fog = new FogExp2(0x000000, 0);
   private readonly resizeObserver: ResizeObserver;
   private _estilo: VisualStyle;
 
-  constructor(private readonly canvas: HTMLCanvasElement, private readonly styles: readonly VisualStyle[], filtro: string) {
+  constructor(private readonly canvas: HTMLCanvasElement, private readonly styles: readonly VisualStyle[], filtro: string, readonly carregamento = new CarregamentoAssets()) {
     if (styles.length === 0) throw new Error('Nenhum filtro visual registrado');
     const gl = canvas.getContext('webgl2', { antialias: false, powerPreference: 'high-performance' });
     if (!gl) throw new WebGL2IndisponivelError();
@@ -40,11 +53,18 @@ export class Palco {
     this.scene.fog = this.fog;
     this.scene.background = new Color(0x000000);
 
-    this.texturas = createTextures();
+    this.texturas = createTextures(this.carregamento);
     const anisotropia = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
     for (const t of listarTexturas(this.texturas)) t.anisotropy = anisotropia;
     this.bank = createMaterialBank(this.texturas);
-    this.doutor = new AcervoDoutor(this.bank, anisotropia);
+    this.doutor = new AcervoDoutor(this.bank, anisotropia, this.carregamento);
+    this.policial = new AcervoPolicial(this.bank, anisotropia, this.carregamento);
+    this.pistola = new AcervoPistola(this.bank, anisotropia, this.carregamento);
+    this.escopeta = new AcervoEscopeta(this.bank, anisotropia, this.carregamento);
+    this.smg = new AcervoSMG(this.bank, anisotropia, this.carregamento);
+    this.lancador = new AcervoLancador(this.bank, anisotropia, this.carregamento);
+    this.fechadura = new AcervoFechadura(this.bank, anisotropia, this.carregamento);
+    this.carregamento.fechar();
     this.lights = new LightRig(this.scene, this.camera);
     this.pipeline = new PostPipeline(this.renderer);
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -93,9 +113,16 @@ export class Palco {
   }
 
   dispose(): void {
+    this.carregamento.cancelar();
     this.resizeObserver.disconnect();
     this.lights.dispose();
     this.doutor.dispose();
+    this.policial.dispose();
+    this.pistola.dispose();
+    this.escopeta.dispose();
+    this.smg.dispose();
+    this.lancador.dispose();
+    this.fechadura.dispose();
     this.bank.dispose();
     this.pipeline.dispose();
     this.renderer.dispose();

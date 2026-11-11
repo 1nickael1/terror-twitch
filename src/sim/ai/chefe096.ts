@@ -4,7 +4,7 @@ import { CHEFE_096, IA, JOGADOR, NUVEM, PORTA } from '../balance';
 import { comandarPorta, solidoDe } from '../doors';
 import type { SimEvent } from '../eventos';
 import {
-  alturaPiso, caminho, CELL, centro, coordDe, DEGRAU, moverComColisao, naArea, SALTO, visivel, type Solido, type Vec2,
+  alturaPiso, caminho, CELL, centro, coordDe, DEGRAU, naArea, SALTO, visivel, type Solido, type Vec2,
 } from '../grid';
 import { resolverOnde } from '../onde';
 import { celulaFechada } from '../perigos';
@@ -16,6 +16,7 @@ import { ferirJogador } from './comum';
 import { andar, celulaMaisProxima, encarar, linhaAndavel, normalizar, yawPara } from './movimento';
 import { aoAlcance, distanciaJogador, linhaDeVisao } from './percepcao';
 import { tipoDe, type TipoInimigo } from './tipos';
+import { moverEntreInimigos } from './colisaoInimigos';
 
 /** O `Inimigo.modo` do chefe é derivado da fase (para as views e a tensão). */
 const MODO: Record<FaseChefe096, ModoIA> = {
@@ -257,7 +258,7 @@ function investir(w: World, c: EstadoChefe096, i: Inimigo, t: TipoInimigo, lenti
   }
   const passo = CHEFE_096.investidaVel * lentidao * dt;
   const antes = i.pos;
-  i.pos = moverComColisao(w.grid, i.pos, i.y, dir.x * passo, dir.z * passo, t.raio, DEGRAU, solidoDe(w));
+  i.pos = moverEntreInimigos(w, i, dir.x * passo, dir.z * passo);
   i.y = alturaPiso(w.grid, i.pos);
   if (aoAlcance(w, i, t, CHEFE_096.investidaGolpe)) {
     entrarPausa(c);

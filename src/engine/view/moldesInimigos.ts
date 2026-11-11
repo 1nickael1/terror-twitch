@@ -334,3 +334,20 @@ export const GENERICO: Molde = {
     { osso: 'cabeca', geo: caixa(0.2, 0.05, 0.03), slot: 'ini-olho', pos: [0, 0.17, -0.16], emissivo: true },
   ],
 };
+
+/** Silhueta de papel sobre cavalete, com círculos nas duas faces para a leitura em ambos os sentidos. */
+export const ALVO_TREINO: Molde = {
+  base: { ...GENERICO.base, balancoBraco: 0, mole: 0 },
+  juntas: GENERICO.juntas,
+  pecas: [
+    { osso: 'tronco', geo: caixa(0.8, 0.9, 0.07), cor: 0xe8ddc4, pos: [0, 0.52, 0] },
+    { osso: 'cabeca', geo: caixa(0.3, 0.3, 0.07), cor: 0xe8ddc4, pos: [0, 0.15, 0] },
+    { osso: 'tronco', geo: caixa(0.07, 0.7, 0.08), cor: 0x555f65, pos: [0, -0.15, 0] },
+    { osso: 'tronco', geo: caixa(0.9, 0.06, 0.45), cor: 0x555f65, pos: [0, -0.47, 0] },
+    ...[-1, 1].flatMap((face) => [
+      { osso: 'tronco' as const, geo: () => new CylinderGeometry(0.29, 0.29, 0.008, 32), cor: 0x252d33, pos: [0, 0.58, face * 0.04] as [number, number, number], rot: [Math.PI / 2, 0, 0] as [number, number, number] },
+      { osso: 'tronco' as const, geo: () => new CylinderGeometry(0.2, 0.2, 0.008, 32), cor: 0xe8ddc4, pos: [0, 0.58, face * 0.05] as [number, number, number], rot: [Math.PI / 2, 0, 0] as [number, number, number] },
+      { osso: 'tronco' as const, geo: () => new CylinderGeometry(0.11, 0.11, 0.008, 24), cor: 0xc7492f, pos: [0, 0.58, face * 0.06] as [number, number, number], rot: [Math.PI / 2, 0, 0] as [number, number, number] },
+    ]),
+  ],
+};

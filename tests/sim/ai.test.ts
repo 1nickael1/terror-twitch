@@ -6,6 +6,7 @@ import { centro } from '../../src/sim/grid';
 import { avancarProjeteis, ferirInimigo } from '../../src/sim/weapons';
 import { criarWorld } from '../../src/sim/world';
 import { irPara } from '../../src/sim/ai/movimento';
+import { alvoDisponivelParaTiro } from '../../src/sim/ai/percepcao';
 import { faseMinima, porInimigo } from './ajuda';
 
 const dt = 1 / 60;
@@ -28,6 +29,19 @@ const rodar = (w: ReturnType<typeof mundo>, s: number, ruidos: { pos: { x: numbe
 const OESTE = Math.PI / 2;   // olhando para -x, na direção do jogador
 
 describe('percepção', () => {
+  it('só libera a pose de tiro com alvo visível, dentro do alcance e sem parede', () => {
+    const w = mundo(), i = porInimigo(w, 'seguranca', [5, 1]);
+    w.jogador.lanterna = false;
+    expect(alvoDisponivelParaTiro(w, i)).toBe(true);
+    i.pos = centro([7, 1]);
+    expect(alvoDisponivelParaTiro(w, i)).toBe(false);
+    w.jogador.lanterna = true;
+    expect(alvoDisponivelParaTiro(w, i)).toBe(true);
+    i.pos = centro([10, 1]);
+    expect(alvoDisponivelParaTiro(w, i)).toBe(false);
+    w.jogador.pos = centro([4, 2]); i.pos = centro([8, 2]);
+    expect(alvoDisponivelParaTiro(w, i)).toBe(false);
+  });
   it('vê o jogador à frente e não vê de costas', () => {
     const w = mundo();
     const i = porInimigo(w, 'funcionario', [8, 1]);

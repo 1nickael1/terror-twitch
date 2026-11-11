@@ -28,6 +28,19 @@ function mundo(): World {
 const som = (e: SimEvent, w = mundo()) => somDoEvento(e, w)?.som ?? null;
 
 describe('somDoEvento: mapa de eventos para sons', () => {
+  it('usa o engatilhamento somente ao pegar balas de pistola, independentemente da arma na mão', () => {
+    const w = criarWorld(faseMinima(PLANTA, { pickups: [
+      { tipo: 'municao', em: [2, 1], municao: 'balas' },
+      { tipo: 'municao', em: [3, 1], municao: 'leves' },
+      { tipo: 'municao', em: [4, 1], municao: 'cartuchos' },
+      { tipo: 'vida_p', em: [5, 1] },
+    ] }));
+    w.jogador.arma = 'smg';
+    expect(somDoEvento({ tipo: 'pickup', indice: 0 }, w)).toEqual({ som: 'municaoPistola', pos: null });
+    expect(somDoEvento({ tipo: 'pickup', indice: 1 }, w)).toEqual({ som: 'pickup', pos: null });
+    expect(somDoEvento({ tipo: 'pickup', indice: 2 }, w)).toEqual({ som: 'municaoEscopeta', pos: null });
+    expect(somDoEvento({ tipo: 'pickup', indice: 3 }, w)).toEqual({ som: 'recuperarVida', pos: null });
+  });
   it('tiro escolhe o som pela arma e não é posicional', () => {
     const w = mundo();
     const casos: ['tiro', ArmaId, NomeSom][] = [
@@ -71,9 +84,9 @@ describe('somDoEvento: mapa de eventos para sons', () => {
     expect(abrindo?.pos).toEqual(c);
     expect(abrindo?.y).toBeGreaterThan(0);
     expect(som({ tipo: 'porta', id: 'd1', estado: 'fechando' }, w)).toBe('portaMotor');
-    expect(som({ tipo: 'porta', id: 'd1', estado: 'aberta' }, w)).toBe('portaBaque');
-    expect(som({ tipo: 'porta', id: 'd1', estado: 'fechada' }, w)).toBe('portaBaque');
-    expect(som({ tipo: 'porta', id: 'd1', estado: 'trancada' }, w)).toBe('portaBaque');
+    expect(som({ tipo: 'porta', id: 'd1', estado: 'aberta' }, w)).toBeNull();
+    expect(som({ tipo: 'porta', id: 'd1', estado: 'fechada' }, w)).toBeNull();
+    expect(som({ tipo: 'porta', id: 'd1', estado: 'trancada' }, w)).toBeNull();
   });
 
   it('porta com id desconhecido não toca nada', () => {
@@ -138,10 +151,10 @@ describe('somDoEvento: mapa de eventos para sons', () => {
     expect(somDoEvento({ tipo: 'som', id: '' }, mundo())).toBeNull();
   });
 
-  it('eventos sem som e o alarme (laço controlado pelo estado do mundo) não viram som avulso', () => {
+  it('eventos silenciosos e desligar o alarme não produzem grito', () => {
     for (const e of [
       { tipo: 'ruido', pos: { x: 1, z: 1 }, raio: 3 }, { tipo: 'gatilho', id: 'g' },
-      { tipo: 'luz', grupo: 'a', ligada: true }, { tipo: 'alarme', ligado: true }, { tipo: 'alarme', ligado: false },
+      { tipo: 'luz', grupo: 'a', ligada: true }, { tipo: 'alarme', ligado: false },
     ] as SimEvent[]) {
       expect(somDoEvento(e, mundo())).toBeNull();
     }
@@ -238,7 +251,7 @@ describe('distância e oclusão', () => {
 
   it('o som da própria porta fechada não é abafado por ela', () => {
     const w = mundo();
-    const p = somDoEvento({ tipo: 'porta', id: 'd1', estado: 'trancada' }, w);
+    const p = somDoEvento({ tipo: 'porta_desbloqueada', id: 'd1' }, w);
     expect(p?.celulaPorta).toEqual([4, 1]);
     expect(ocluido(w.grid, ouvinte(w), p!.pos!, solidoDe(w), p!.celulaPorta)).toBe(false);
     // sem a exceção, a célula da porta fechada bloquearia
@@ -348,13 +361,13 @@ describe('lamentoDoChefe', () => {
 describe('lacosDaFase (quais laços da fase tocam dado o estado)', () => {
   const PLANTA_L = ['#######', '#P....#', '#######'].join('\n');
 
-  it('em jogo: ambiente e drone sempre; alarme segue world.alarme; lamento com o chefe inerte', () => {
+  it('em jogo: ambiente e drone seguem, sirene não faz loop; lamento com o chefe inerte', () => {
     const w = criarWorld(faseComChefe(PLANTA_L, { em: [5, 1] }));
     expect(lacosDaFase(w)).toEqual({ ambiente: true, drone: true, alarme: false, lamento: true });
     w.alarme = true;
     w.sirene = 5;
     if (w.chefe) w.chefe.fase = 'despertando';
-    expect(lacosDaFase(w)).toEqual({ ambiente: true, drone: true, alarme: true, lamento: false });
+    expect(lacosDaFase(w)).toEqual({ ambiente: true, drone: true, alarme: false, lamento: false });
   });
 
   it('morto (tela de morte, 2 s): os laços seguem', () => {
@@ -362,7 +375,7 @@ describe('lacosDaFase (quais laços da fase tocam dado o estado)', () => {
     w.alarme = true;
     w.sirene = 5;
     w.estado = 'morto';
-    expect(lacosDaFase(w)).toEqual({ ambiente: true, drone: true, alarme: true, lamento: false });
+    expect(lacosDaFase(w)).toEqual({ ambiente: true, drone: true, alarme: false, lamento: false });
   });
 
   it('fase concluída: nenhum laço, nem com o alarme ligado ou o chefe inerte', () => {

@@ -11,8 +11,12 @@ import type { World } from '../sim/world';
  * fora desta lista, mas contam no limite de vozes (`vagasAvulsas`).
  */
 export const NOMES_SOM = [
+  'chefeDistante',
+  'pegarCartao', 'portaDesbloqueada',
+  'municaoEscopeta',
+  'recuperarVida', 'pegarColete',
   'tiroPistola', 'tiroEscopeta', 'tiroSmg', 'disparoLancador', 'explosao', 'impactoParede', 'impactoCarne',
-  'passo', 'pulo', 'pouso', 'portaMotor', 'portaBaque', 'portaNegada', 'pickup', 'armaTrocada', 'semMunicao',
+  'passo', 'pulo', 'pouso', 'portaMotor', 'portaBaque', 'portaNegada', 'pickup', 'municaoPistola', 'armaTrocada', 'semMunicao',
   'dorJogador', 'grunhidoAlerta', 'grunhidoAtaque', 'dorInimigo', 'morteInimigo', 'projetil', 'bip',
   'bipDiscreto', 'checkpoint', 'segredo', 'morteJogador', 'faseConcluida',
   // chefe e comportas
@@ -154,7 +158,8 @@ export interface LacosDaFase { ambiente: boolean; drone: boolean; alarme: boolea
  */
 export function lacosDaFase(w: World): LacosDaFase {
   if (w.estado === 'concluida') return { ambiente: false, drone: false, alarme: false, lamento: false };
-  return { ambiente: true, drone: true, alarme: w.alarme && w.sirene > 0, lamento: lamentoDoChefe(w) !== null };
+  if (w.fase.treino) return { ambiente: false, drone: false, alarme: false, lamento: false };
+  return { ambiente: true, drone: true, alarme: false, lamento: lamentoDoChefe(w) !== null };
 }
 
 /**
@@ -227,19 +232,26 @@ export function somDoEvento(e: SimEvent, w: World): PedidoSom | null {
       return { som: 'pulo', pos: null };
     case 'pouso':
       return { som: 'pouso', pos: null };
+    case 'porta_desbloqueada':
     case 'porta': {
       const p = w.portas.find((x) => x.id === e.id);
       if (!p) return null;
-      const motor = e.estado === 'abrindo' || e.estado === 'fechando';
+      if (e.tipo === 'porta' && e.estado !== 'abrindo' && e.estado !== 'fechando') return null;
       const [col, row] = p.coord;
       return {
-        som: motor ? 'portaMotor' : 'portaBaque', pos: centro(p.coord), y: celula(w.grid, col, row).piso + ALTURA_PORTA, celulaPorta: p.coord,
+        som: e.tipo === 'porta_desbloqueada' ? 'portaDesbloqueada' : 'portaMotor', pos: centro(p.coord), y: celula(w.grid, col, row).piso + ALTURA_PORTA, celulaPorta: p.coord,
       };
     }
     case 'porta_negada':
       return { som: 'portaNegada', pos: null };
-    case 'pickup':
-      return { som: 'pickup', pos: null };
+    case 'pickup': {
+      const def = w.pickups[e.indice]?.def;
+      if (def?.tipo === 'cartao') return { som: 'pegarCartao', pos: null };
+      if (def?.tipo === 'municao' && def.municao === 'cartuchos') return { som: 'municaoEscopeta', pos: null };
+      if (def?.tipo === 'vida_p' || def?.tipo === 'vida_g') return { som: 'recuperarVida', pos: null };
+      if (def?.tipo === 'colete_p' || def?.tipo === 'colete_g') return { som: 'pegarColete', pos: null };
+      return { som: def?.tipo === 'municao' && def.municao === 'balas' ? 'municaoPistola' : 'pickup', pos: null };
+    }
     case 'arma_trocada':
       return { som: 'armaTrocada', pos: null };
     case 'sem_municao':
@@ -308,8 +320,9 @@ export function somDoEvento(e: SimEvent, w: World): PedidoSom | null {
       return { som: 'morteJogador', pos: null };
     case 'fase_concluida':
       return { som: 'faseConcluida', pos: null };
-    // o alarme é um laço que segue `world.alarme`; ruído, gatilho e luz não têm som
     case 'alarme':
+      return e.ligado ? { som: 'chefeDistante', pos: null } : null;
+    // Sirene e grito são avulsos: só tocam ao ligar ou reativar o alarme.
     case 'ruido':
     case 'gatilho':
     case 'luz':

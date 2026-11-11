@@ -1,11 +1,11 @@
 // Pickups: um InstancedMesh por forma (vida, colete, munição por tipo, arma por arma, cartão por
-// nível), girando devagar e flutuando; a instância some (escala 0) quando o pickup foi pego.
+// nível), girando devagar e flutuando; armas importadas usam clones com geometria e mapas compartilhados.
 import {
-  BoxGeometry, CylinderGeometry, Euler, InstancedMesh, Matrix4, Quaternion, Vector3, type BufferGeometry, type Group,
+  Box3, BoxGeometry, CylinderGeometry, Euler, Group, InstancedMesh, Matrix4, Quaternion, Vector3, type BufferGeometry, type Mesh, type Object3D,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { alturaPiso } from '../../sim/grid';
-import type { PickupDef } from '../../sim/fase';
+import type { ArmaId, PickupDef } from '../../sim/fase';
 import type { World } from '../../sim/world';
 import type { Recursos } from './recursos';
 
@@ -74,6 +74,11 @@ function formaDe(def: PickupDef): { chave: string; forma: Forma; escala: number 
 }
 
 interface Instancia { malha: InstancedMesh; i: number; escala: number; fase: number }
+const SLOT_ARMA: Record<ArmaId, string> = {
+  pistola: 'pistola-neon', escopeta: 'escopeta-tactical', smg: 'smg-sentinel', lancador: 'lancador-viper',
+};
+/** Dimensão máxima em metros no cenário, independente da escala do suporte FPS. */
+const TAMANHO_ARMA: Record<ArmaId, number> = { pistola: .42, escopeta: 1.05, smg: .7, lancador: .9 };
 
 const ALTURA = 0.55;
 const GIRO = 1.2;   // rad/s
@@ -81,6 +86,7 @@ const FLUTUA = 0.07;
 
 export class PickupsView {
   private readonly instancias: Instancia[] = [];
+  private readonly armas = new Map<number, Group>();
   private readonly pisos: number[];
   private readonly m = new Matrix4();
   private readonly pos = new Vector3();
@@ -88,10 +94,30 @@ export class PickupsView {
   private readonly esc = new Vector3();
   private readonly euler = new Euler();
 
-  constructor(world: World, rec: Recursos, grupo: Group) {
+  constructor(world: World, rec: Recursos, grupo: Group, modelos: Partial<Record<ArmaId, Object3D>> = {}) {
     const grupos = new Map<string, { forma: Forma; indices: number[] }>();
     const formas = world.pickups.map((p) => formaDe(p.def));
     formas.forEach((f, i) => {
+      const def = world.pickups[i].def;
+      const modelo = def.tipo === 'arma' && def.arma ? modelos[def.arma] : undefined;
+      if (modelo && def.arma) {
+        const id = def.arma;
+        const suporte = new Group(); suporte.name = `pickup:arma:${def.arma}`;
+        const copia = modelo.clone(true);
+        copia.traverse(o => {
+          const m = o as Mesh;
+          if (m.isMesh) { rec.usar(m, SLOT_ARMA[id], true); m.castShadow = true; m.receiveShadow = true; }
+        });
+        const caixa = new Box3().setFromObject(copia);
+        const tamanho = caixa.getSize(new Vector3());
+        const conteudo = new Group(); conteudo.add(copia);
+        conteudo.position.copy(caixa.getCenter(new Vector3())).multiplyScalar(-1);
+        suporte.add(conteudo);
+        suporte.scale.setScalar(TAMANHO_ARMA[def.arma] / Math.max(.001, tamanho.x, tamanho.y, tamanho.z));
+        grupo.add(suporte);
+        this.armas.set(i, suporte);
+        return;
+      }
       const gr = grupos.get(f.chave) ?? { forma: f.forma, indices: [] };
       gr.indices.push(i);
       grupos.set(f.chave, gr);
@@ -113,6 +139,13 @@ export class PickupsView {
   sincronizar(world: World, t: number): void {
     const tocadas = new Set<InstancedMesh>();
     world.pickups.forEach((p, indice) => {
+      const arma = this.armas.get(indice);
+      if (arma) {
+        arma.visible = !p.pego;
+        arma.position.set(p.pos.x, this.pisos[indice] + ALTURA + Math.sin(t * 2 + indice * 1.7) * FLUTUA, p.pos.z);
+        arma.rotation.y = t * GIRO + indice * 1.7;
+        return;
+      }
       const inst = this.instancias[indice];
       if (!inst) return;
       const s = p.pego ? 0 : inst.escala;

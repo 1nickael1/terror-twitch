@@ -100,6 +100,20 @@ function lancador(rec: Recursos): ModeloArma {
   return { grupo: m.grupo, cano: m.ponto([0, 0.05, -0.38]), tambor };
 }
 
-export function construirArmas(rec: Recursos): Record<ArmaId, ModeloArma> {
-  return { pistola: pistola(rec), escopeta: escopeta(rec), smg: smg(rec), lancador: lancador(rec) };
+function armaImportada(rec: Recursos, modelo: Object3D, nome: string, slot: string, ponto: V3, id: string): ModeloArma {
+  const grupo = new Group(); grupo.name = nome;
+  const copia = modelo.clone(true);
+  copia.traverse(o => { const m = o as Mesh; if (m.isMesh) { rec.usar(m, slot, true); m.frustumCulled = false; } });
+  grupo.add(copia);
+  const cano = new Object3D(); cano.name = `${id}:cano`; cano.position.set(...ponto); grupo.add(cano);
+  return { grupo, cano, tambor: null };
+}
+
+export function construirArmas(rec: Recursos, novaPistola?: Object3D, novaEscopeta?: Object3D, novaSMG?: Object3D, novoLancador?: Object3D): Record<ArmaId, ModeloArma> {
+  return {
+    pistola: novaPistola ? armaImportada(rec, novaPistola, 'arma:pistola-neon-warden', 'pistola-neon', [0, .096, -.232], 'pistola') : pistola(rec),
+    escopeta: novaEscopeta ? armaImportada(rec, novaEscopeta, 'arma:escopeta-worn-tactical', 'escopeta-tactical', [0, .047, -.428], 'escopeta') : escopeta(rec),
+    smg: novaSMG ? armaImportada(rec, novaSMG, 'arma:smg-rusted-sentinel', 'smg-sentinel', [0, .070, -.321], 'smg') : smg(rec),
+    lancador: novoLancador ? armaImportada(rec, novoLancador, 'arma:lancador-iron-viper', 'lancador-viper', [0, .070, -.427], 'lancador') : lancador(rec),
+  };
 }

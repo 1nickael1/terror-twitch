@@ -14,10 +14,11 @@ export type SimEvent =
   | { tipo: 'inimigo_ataque'; id: number }
   | { tipo: 'inimigo_dor'; id: number }
   | { tipo: 'inimigo_morto'; id: number }
-  | { tipo: 'projetil'; id: number }
+  | { tipo: 'projetil'; id: number; inimigoId?: number }
   | { tipo: 'explosao'; pos: Vec2 }
   | { tipo: 'porta'; id: string; estado: Porta['estado'] }
   | { tipo: 'porta_negada'; id: string; exige: NivelCartao | null }
+  | { tipo: 'porta_desbloqueada'; id: string }
   | { tipo: 'pickup'; indice: number }
   | { tipo: 'arma_trocada'; arma: ArmaId }
   | { tipo: 'sem_municao' }

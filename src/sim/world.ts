@@ -39,6 +39,7 @@ export interface Jogador {
 /** `levantando` (C3.2): corpo voltando à vida (pose própria; não ataca nem anda). */
 export type ModoIA = 'dormindo' | 'patrulha' | 'suspeita' | 'perseguicao' | 'ataque' | 'dor' | 'morto' | 'levantando';
 export interface Inimigo {
+  imovel?: boolean;
   id: number; tipo: string; grupo: string | null; pos: Vec2; y: number; yaw: number;
   vida: number; modo: ModoIA; timer: number; espera: number;
   alvo: Vec2 | null; rota: Vec2[];
@@ -126,6 +127,7 @@ export function criarWorld(fase: LevelDef): World {
   if (!marcaP) throw new Error(`Fase "${fase.id}": a planta precisa de exatamente um P`);
   const pos = centro(marcaP);
   const jogador = criarJogador(pos, fase.spawnYaw, alturaPiso(grid, pos));
+  if (fase.treino) jogador.vida = fase.treino.vidaInicial;
   jogador.armas = [...fase.arsenal.armas];
   jogador.arma = jogador.armas[0] ?? 'pistola';
   jogador.municao = { ...jogador.municao, ...fase.arsenal.municao };

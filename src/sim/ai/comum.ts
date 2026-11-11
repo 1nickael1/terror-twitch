@@ -11,8 +11,9 @@ import { frente } from '../player';
 import type { Inimigo, World } from '../world';
 import { iaDeChefe } from './chefes';
 import { celulaMaisProxima, encarar, irPara, normalizar, recuar, solidoRota } from './movimento';
-import { alcanceVisao, distanciaJogador, linhaDeVisao, tiroLivre, ve } from './percepcao';
+import { alcanceVisao, alvoDisponivelParaTiro, distanciaJogador, linhaDeVisao, ve } from './percepcao';
 import { tipoDe, type TipoInimigo } from './tipos';
+import { separarInimigos } from './colisaoInimigos';
 
 export { ve } from './percepcao';
 
@@ -32,6 +33,7 @@ export function criarInimigo(w: World, def: InimigoDef): Inimigo {
   const modo = def.corpo ? 'morto' : def.dormindo || tipo.deitado ? 'dormindo' : 'patrulha';
   return {
     id: w.proximoId++, tipo: def.tipo, grupo: def.grupo ?? null, pos, y: alturaPiso(w.grid, pos),
+    ...(def.imovel ? { imovel: true } : {}),
     yaw: def.yaw ?? 0, vida: def.corpo ? 0 : tipo.vida, modo, timer: 0, espera: 0,
     alvo: null, rota: [], rotaEm: 0, patrulha: (def.patrulha ?? []).map(centro), patrulhaI: 0, lento: 0,
     ultimoVisto: null, semVer: 0, semRota: false, destinoRota: null, rotasCalculadas: 0, alertado: false,
@@ -45,6 +47,7 @@ export function criarInimigo(w: World, def: InimigoDef): Inimigo {
 export function adicionarInimigo(w: World, def: InimigoDef): Inimigo {
   const i = criarInimigo(w, def);
   w.inimigos.push(i);
+  separarInimigos(w);
   if (i.contado) w.stats.totalInimigos++;
   return i;
 }
@@ -235,7 +238,7 @@ function perseguir(w: World, i: Inimigo, vel: number, dt: number): SimEvent[] {
   }
 
   if (t.arquetipo === 'atirador') {
-    const podeAtirar = visto && d <= t.alcanceAtaque && tiroLivre(w, i);
+    const podeAtirar = alvoDisponivelParaTiro(w, i);
     if (podeAtirar && i.espera <= 0) {
       encarar(i, j.pos);
       return entrarAtaque(i, t);
@@ -311,7 +314,7 @@ function disparar(w: World, i: Inimigo, t: TipoInimigo, p: NonNullable<TipoInimi
     id, de: 'inimigo', tipo: i.tipo, pos: copia(i.pos), y,
     vel: { x: u.x * p.velocidade, z: u.z * p.velocidade }, vy, dano: t.dano, vida: IA.vidaProjetil,
   });
-  return [{ tipo: 'projetil', id }];
+  return [{ tipo: 'projetil', id, inimigoId: i.id }];
 }
 
 /** Espera o `preparo` virado para o jogador, aplica o golpe e volta a perseguir com `espera = cadencia`. */
@@ -330,6 +333,11 @@ function atacar(w: World, i: Inimigo, dt: number): SimEvent[] {
 
 function avancarInimigo(w: World, i: Inimigo, ruidos: readonly Ruido[], dt: number): SimEvent[] {
   if (i.modo === 'morto') return [];
+  if (i.imovel || tipoDe(i.tipo).imovel) {
+    i.timer = Math.max(0, i.timer - dt);
+    if (i.timer === 0) i.modo = 'patrulha';
+    return [];
+  }
   i.espera = Math.max(0, i.espera - dt);
   i.rotaEm = Math.max(0, i.rotaEm - dt);
   const vel = tipoDe(i.tipo).velocidade * (i.lento > 0 ? NUVEM.lentidao : 1);
@@ -357,11 +365,14 @@ function avancarInimigo(w: World, i: Inimigo, ruidos: readonly Ruido[], dt: numb
  * dele (`ai/chefes.ts`). Com o jogo parado (`estado !== 'jogando'`), nada acontece.
  */
 export function avancarInimigos(w: World, ruidos: readonly Ruido[], dt: number): SimEvent[] {
+  if (w.estado !== 'jogando') return [];
+  separarInimigos(w);
   const eventos: SimEvent[] = [];
   for (const i of w.inimigos) {
     if (w.estado !== 'jogando') break;
     const chefe = w.chefe?.inimigoId === i.id ? iaDeChefe(w.chefe.tipo) : null;
     eventos.push(...(chefe ? chefe.avancar(w, i, dt) : avancarInimigo(w, i, ruidos, dt)));
   }
+  separarInimigos(w);
   return eventos;
 }

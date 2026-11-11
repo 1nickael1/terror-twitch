@@ -1,0 +1,12 @@
+{
+  "origem": "Arquivos fornecidos pelo usuário; originais preservados em Downloads.",
+  "movimento.mp3": {
+    "arquivo": "freesound_community-closing-metal-door-44280.mp3",
+    "inicioOriginal": 1.72,
+    "duracao": 1.5,
+    "ajuste": "Segundo impacto metálico; timestamps zerados após o recorte, antes dos fades de entrada de 5 ms e saída de 80 ms. Toca uma vez ao iniciar abertura ou fechamento."
+  },
+  "negada.mp3": { "arquivo": "freesound_community-htranchant_01-91654.mp3", "ajuste": "Arquivo original, sem alterações." },
+  "desbloqueio.mp3": { "arquivo": "litupsubway-door-open-2-518624.mp3", "duracao": 1.5, "ajuste": "Silêncio final removido; fade final de 100 ms. Toca somente na transição da porta trancada para destrancada." },
+  "../itens/cartao.mp3": { "arquivo": "freesound_community-card-payment-machine-1-103738.mp3", "ajuste": "Arquivo original, sem alterações." }
+}

@@ -1,0 +1,151 @@
+{
+  "origem": "Modelo criado pelo usuário no Meshy; FBX animado Mixamo 60 fps.",
+  "usoNoJogo": {
+    "tipo": "seguranca",
+    "altura": 1.8,
+    "arma": "Olive Drab Battle Rifle (Meshy), preso à mão direita e alinhado ao apoio esquerdo; asset em models/arma-policial."
+  },
+  "arquivoOriginal": "Meshy_AI_Tactical_Revenant_20261111_animated_mixamo_60fps_All_animation.fbx",
+  "malhas": 1,
+  "vertices": 31077,
+  "triangulos": 10359,
+  "ossos": [
+    "mixamorigHips",
+    "mixamorigSpine",
+    "mixamorigSpine1",
+    "mixamorigSpine2",
+    "mixamorigNeck",
+    "mixamorigHead",
+    "mixamorigHeadTop_End",
+    "headfront",
+    "mixamorigLeftShoulder",
+    "mixamorigLeftArm",
+    "mixamorigLeftForeArm",
+    "mixamorigLeftHand",
+    "mixamorigLeftHandThumb1",
+    "mixamorigLeftHandThumb2",
+    "mixamorigLeftHandThumb3",
+    "mixamorigLeftHandThumb4",
+    "mixamorigLeftHandPinky1",
+    "mixamorigLeftHandPinky2",
+    "mixamorigLeftHandPinky3",
+    "mixamorigLeftHandPinky4",
+    "mixamorigLeftHandRing1",
+    "mixamorigLeftHandRing2",
+    "mixamorigLeftHandRing3",
+    "mixamorigLeftHandRing4",
+    "mixamorigLeftHandIndex1",
+    "mixamorigLeftHandIndex2",
+    "mixamorigLeftHandIndex3",
+    "mixamorigLeftHandIndex4",
+    "mixamorigLeftHandMiddle1",
+    "mixamorigLeftHandMiddle2",
+    "mixamorigLeftHandMiddle3",
+    "mixamorigLeftHandMiddle4",
+    "mixamorigRightShoulder",
+    "mixamorigRightArm",
+    "mixamorigRightForeArm",
+    "mixamorigRightHand",
+    "mixamorigRightHandThumb1",
+    "mixamorigRightHandThumb2",
+    "mixamorigRightHandThumb3",
+    "mixamorigRightHandThumb4",
+    "mixamorigRightHandPinky1",
+    "mixamorigRightHandPinky2",
+    "mixamorigRightHandPinky3",
+    "mixamorigRightHandPinky4",
+    "mixamorigRightHandRing1",
+    "mixamorigRightHandRing2",
+    "mixamorigRightHandRing3",
+    "mixamorigRightHandRing4",
+    "mixamorigRightHandIndex1",
+    "mixamorigRightHandIndex2",
+    "mixamorigRightHandIndex3",
+    "mixamorigRightHandIndex4",
+    "mixamorigRightHandMiddle1",
+    "mixamorigRightHandMiddle2",
+    "mixamorigRightHandMiddle3",
+    "mixamorigRightHandMiddle4",
+    "mixamorigLeftUpLeg",
+    "mixamorigLeftLeg",
+    "mixamorigLeftFoot",
+    "mixamorigLeftToeBase",
+    "mixamorigLeftToe_End",
+    "mixamorigRightUpLeg",
+    "mixamorigRightLeg",
+    "mixamorigRightFoot",
+    "mixamorigRightToeBase",
+    "mixamorigRightToe_End"
+  ],
+  "caixa": {
+    "min": [
+      -0.8268769555205572,
+      4.0346267244997304e-08,
+      -0.20347767667819638
+    ],
+    "max": [
+      0.8268766217991983,
+      1.6999999075400958,
+      0.20347770035840587
+    ],
+    "tamanho": [
+      1.6537535773197556,
+      1.6999998671938286,
+      0.40695537703660223
+    ]
+  },
+  "animacoes": [
+    {
+      "nome": "Running",
+      "duracao": 0.6333333253860474,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Walking",
+      "duracao": 1.0333333015441895,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Archery_Aim_with_Lateral_Scan",
+      "duracao": 5,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Dead",
+      "duracao": 2.9666666984558105,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Gunshot_Reaction",
+      "duracao": 3,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Walk_Forward_While_Shooting",
+      "duracao": 3.2666666507720947,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    },
+    {
+      "nome": "Walk_Forward_with_Bow_Aimed",
+      "duracao": 1.2000000476837158,
+      "trilhas": 128,
+      "primeiraTrilha": "mixamorigHead.position"
+    }
+  ],
+  "mapas": {
+    "albedo": "/models/policial/albedo.webp",
+    "normal": "/models/policial/normal.webp",
+    "rugosidade": "/models/policial/rugosidade.webp",
+    "metalicidade": "/models/policial/metalicidade.webp"
+  },
+  "bytesModelo": 4683968,
+  "animacoesExtras": [
+    "/models/policial/recuo.json"
+  ]
+}

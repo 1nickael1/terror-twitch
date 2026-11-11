@@ -22,12 +22,17 @@ import * as F2 from './sinteseFase2';
 import { trilha } from './trilha';
 import * as D from './sinteseDoutor';
 import { PassosDoutor } from './passosDoutor';
+import type { AcervoSons } from './AcervoSons';
 
 const SONS: Record<NomeSom, S.Sintese> = {
+  chefeDistante: CH.chefeDesperta,
+  pegarCartao: S.pickup, portaDesbloqueada: S.portaMotor,
+  municaoEscopeta: S.pickup,
+  recuperarVida: S.pickup, pegarColete: S.pickup,
   tiroPistola: S.tiroPistola, tiroEscopeta: S.tiroEscopeta, tiroSmg: S.tiroSmg, disparoLancador: S.disparoLancador,
   explosao: S.explosao, impactoParede: S.impactoParede, impactoCarne: S.impactoCarne,
   passo: S.passo, pulo: S.pulo, pouso: S.pouso, portaMotor: S.portaMotor, portaBaque: S.portaBaque,
-  portaNegada: S.portaNegada, pickup: S.pickup, armaTrocada: S.armaTrocada, semMunicao: S.semMunicao,
+  portaNegada: S.portaNegada, pickup: S.pickup, municaoPistola: S.pickup, armaTrocada: S.armaTrocada, semMunicao: S.semMunicao,
   dorJogador: S.dorJogador, grunhidoAlerta: S.grunhidoAlerta, grunhidoAtaque: S.grunhidoAtaque,
   dorInimigo: S.dorInimigo, morteInimigo: S.morteInimigo, projetil: S.projetil, bip: S.bip,
   bipDiscreto: S.bipDiscreto, checkpoint: S.checkpoint, segredo: S.segredo, morteJogador: S.morteJogador,
@@ -76,7 +81,6 @@ export class SomDaFase {
   private ctx: AudioContext | null = null;
   private ambiente: S.Laco | null = null;
   private drone: S.Laco | null = null;
-  private alarme: S.Laco | null = null;
   private lamento: LamentoChefe | null = null;
   private lamentoTestadoEm = -Infinity;
   /** laços dos perigos de área tocando, por id do perigo */
@@ -91,6 +95,7 @@ export class SomDaFase {
   constructor(
     private readonly mixer: Mixer,
     private readonly fase: LevelDef,
+    private readonly sons?: AcervoSons,
   ) {
     this.temPerigoArea = (fase.chefe?.perigos ?? []).some((p) => p.tipo !== 'comporta');
   }
@@ -110,14 +115,13 @@ export class SomDaFase {
       this.seguirAmbiente(b, efeitos, lacos.ambiente, rampa);
       this.seguirDrone(b, musica, lacos.drone, rampa);
       this.seguirTensao(ctx, world.tensao);
-      this.seguirAlarme(b, efeitos, lacos.alarme, rampa);
       this.seguirLamento(b, efeitos, world, ouvinte, lacos.lamento, rampa);
       this.seguirPerigos(b, efeitos, world, ouvinte, rampa);
       // cada laço tocando tira uma vaga das vozes avulsas (o total não passa do limite)
       const t = this.lacosTocando;
       t.ambiente = this.ambiente !== null;
       t.drone = this.drone !== null;
-      t.alarme = this.alarme !== null;
+      t.alarme = false;
       t.lamento = this.lamento !== null;
       this.mixer.reservarLacos(contarLacos(t, this.perigos.size));
       // suspenso (pausa, aba oculta): nem ouvinte (automação acumulada) nem sons para tocar todos de uma vez depois
@@ -133,16 +137,18 @@ export class SomDaFase {
 
   dispose(): void {
     if (this.descartado) return;
+    this.sons?.cancelarRecarga();
+    this.sons?.cancelarSirene();
     this.descartado = true;
     const t = this.ctx && this.ctx.state !== 'closed' ? this.ctx.currentTime : 0;
-    for (const l of [this.ambiente, this.drone, this.alarme]) {
+    for (const l of [this.ambiente, this.drone]) {
       try {
         l?.parar(t);
       } catch {
         /* contexto já fechado */
       }
     }
-    this.ambiente = this.drone = this.alarme = null;
+    this.ambiente = this.drone = null;
     try {
       this.lamento?.parar();
       for (const p of this.perigos.values()) p.laco.parar();
@@ -160,7 +166,7 @@ export class SomDaFase {
   private trocarContexto(b: S.Bancada): void {
     this.ctx = b.ctx;
     this.tensaoAplicada = -1;
-    this.ambiente = this.drone = this.alarme = null;
+    this.ambiente = this.drone = null;
     this.lamento?.parar();
     this.lamento = null;
     for (const p of this.perigos.values()) p.laco.parar();
@@ -197,14 +203,6 @@ export class SomDaFase {
     const g = this.drone.saida.gain;
     g.cancelScheduledValues(ctx.currentTime);
     g.setTargetAtTime(DRONE_MIN + (DRONE_MAX - DRONE_MIN) * v, ctx.currentTime, DRONE_SUAVE);
-  }
-
-  private seguirAlarme(b: S.Bancada, efeitos: GainNode, ligado: boolean, rampa?: number): void {
-    if (ligado && !this.alarme) this.alarme = S.alarme(b, efeitos);
-    else if (!ligado && this.alarme) {
-      this.alarme.parar(b.ctx.currentTime, rampa);
-      this.alarme = null;
-    }
   }
 
   /** Lamento do chefe enquanto ele está inerte: nasce, acompanha a posição e a oclusão, e para. */
@@ -253,6 +251,11 @@ export class SomDaFase {
   }
 
   private tocarEvento(ctx: AudioContext, world: World, e: SimEvent, ouvinte: Ouvinte): void {
+    if (e.tipo === 'alarme') {
+      if (e.ligado) this.tocarPedido(ctx, world, { som: 'sireneCurta', pos: null }, ouvinte);
+      else this.sons?.cancelarSirene();
+    }
+    if (e.tipo === 'arma_trocada' && e.arma !== 'escopeta') this.sons?.cancelarRecarga();
     const p = somDoEvento(e, world);
     if (!p) return;
     this.tocarPedido(ctx, world, p, ouvinte);
@@ -268,6 +271,6 @@ export class SomDaFase {
       const abafado = ocluido(world.grid, ouvinte, p.pos, solidoDe(world), p.celulaPorta);
       cadeia = criarCadeiaPosicional(ctx, p.pos.x, y, p.pos.z, abafado);
     } else if (!this.limitador.permitir(p.som)) return;
-    this.mixer.tocar(SONS[p.som], cadeia);
+    this.mixer.tocar(this.sons?.obter(p.som) ?? SONS[p.som], cadeia);
   }
 }

@@ -7,6 +7,7 @@
 // Inimigo sem linha de visão da grade até o jogador (e a mais de `PERTO_SEMPRE`) não é desenhado (`oclusao.ts`).
 import { Group } from 'three';
 import { tipoDe } from '../../sim/ai/tipos';
+import { alvoDisponivelParaTiro } from '../../sim/ai/percepcao';
 import { CHEFE_049, CHEFE_096 } from '../../sim/balance';
 import { solidoDe } from '../../sim/doors';
 import type { SimEvent } from '../../sim/eventos';
@@ -19,6 +20,8 @@ import {
 import { aVista } from './oclusao';
 import type { Recursos } from './recursos';
 import type { AcervoDoutor, InstanciaDoutor } from './doutor';
+import type { AcervoPolicial, InstanciaPolicial } from './policial';
+import { movimentoParaTras } from './policialAnimacoes';
 
 const QUEDA = 0.4;            // s até o corpo estar no chão
 const QUEDA_CHEFE = 0.6;      // s do chefe desabando
@@ -45,8 +48,9 @@ function convulsao(p: Pose, t: number): void {
 interface Vista {
   tipo: string; rig: Rig;
   doutor: InstanciaDoutor | null;
+  policial: InstanciaPolicial | null;
   antes: { x: number; y: number; z: number }; agora: { x: number; y: number; z: number };
-  yaw: number; vel: number; passada: number; t: number;
+  yaw: number; vel: number; recuando: boolean; passada: number; t: number;
   modo: Inimigo['modo']; golpe: number; dor: number; clarao: number; piscando: boolean;
   morto: number; poseMorte: Pose; pose: Pose;
   /** progresso da pose de preparo do ataque (0..1): acende a boca da arma */
@@ -75,7 +79,7 @@ export class InimigosView {
   private ultimoT = -1;
   private quadro = 0;
 
-  constructor(private readonly rec: Recursos, grupo: Group, private readonly doutor?: AcervoDoutor) {
+  constructor(private readonly rec: Recursos, grupo: Group, private readonly doutor?: AcervoDoutor, private readonly policial?: AcervoPolicial) {
     this.raiz.name = 'inimigos';
     grupo.add(this.raiz);
     this.modelos = new ModelosInimigos(rec);
@@ -83,6 +87,7 @@ export class InimigosView {
 
   configurar(reduzirFlashes: boolean): void {
     this.reduzirFlashes = reduzirFlashes;
+    for (const v of this.vistas.values()) v.policial?.configurar(reduzirFlashes);
     if (!reduzirFlashes) return;
     for (const v of this.vistas.values()) {
       v.clarao = 0;
@@ -109,8 +114,10 @@ export class InimigosView {
       if (!v) v = this.criar(i, ehChefe ? chefe : null, world);
       v.quadro = quadro;
       if (novoPasso) {
-        const d = Math.hypot(i.pos.x - v.agora.x, i.pos.z - v.agora.z);
+        const dx = i.pos.x - v.agora.x, dz = i.pos.z - v.agora.z;
+        const d = Math.hypot(dx, dz);
         const salto = d > TELEPORTE;
+        v.recuando = !salto && movimentoParaTras(dx, dz, i.yaw);
         v.antes.x = salto ? i.pos.x : v.agora.x;
         v.antes.y = salto ? i.y : v.agora.y;
         v.antes.z = salto ? i.pos.z : v.agora.z;
@@ -134,6 +141,10 @@ export class InimigosView {
     // o clarão anda em tempo real e desconta antes dos eventos: o acerto deste quadro sempre pisca
     for (const v of this.vistas.values()) v.clarao = Math.max(0, v.clarao - dt);
     for (const e of eventos) {
+      if (e.tipo === 'projetil' && e.inimigoId !== undefined) {
+        this.vistas.get(e.inimigoId)?.policial?.disparar();
+        continue;
+      }
       if (e.tipo !== 'inimigo_dor' && e.tipo !== 'inimigo_ataque') continue;
       const v = this.vistas.get(e.id);
       if (!v) continue;
@@ -164,7 +175,7 @@ export class InimigosView {
     rig.raiz.name = `inimigo:${i.id}`;
     this.raiz.add(rig.raiz);
     const v: Vista = {
-      tipo: i.tipo, rig, doutor: null, antes: { x: i.pos.x, y: i.y, z: i.pos.z }, agora: { x: i.pos.x, y: i.y, z: i.pos.z }, yaw: i.yaw, vel: 0, passada: 0, t: (i.id * 0.37) % 6,
+      tipo: i.tipo, rig, doutor: null, policial: null, antes: { x: i.pos.x, y: i.y, z: i.pos.z }, agora: { x: i.pos.x, y: i.y, z: i.pos.z }, yaw: i.yaw, vel: 0, recuando: false, passada: 0, t: (i.id * 0.37) % 6,
       modo: i.modo, golpe: -1, dor: DOR_VISUAL, clarao: 0, piscando: false,
       // já morto ao aparecer (checkpoint): deitado desde o início
       morto: 0, poseMorte: novaPose(), pose: novaPose(), quadro: this.quadro, preparo: 0,
@@ -184,6 +195,7 @@ export class InimigosView {
     const v = this.vistas.get(id);
     if (!v) return;
     v.doutor?.dispose();
+    v.policial?.dispose();
     this.raiz.remove(v.rig.raiz);
     for (const m of v.rig.malhas) this.rec.soltarMalha(m.malha);
     this.vistas.delete(id);
@@ -192,6 +204,7 @@ export class InimigosView {
   /** Troca as malhas do corpo (não as emissivas) para o material do clarão de dor, ou de volta. */
   private piscar(v: Vista, ligado: boolean): void {
     v.doutor?.piscar(ligado);
+    v.policial?.piscar(ligado);
     if (v.piscando === ligado) return;
     v.piscando = ligado;
     for (const m of v.rig.malhas) {
@@ -284,6 +297,17 @@ export class InimigosView {
       }
     }
     v.doutor?.animar(i, v.vel, simDt);
+    if (v.tipo === 'seguranca' && !v.policial && this.policial?.estado === 'pronto') {
+      v.policial = this.policial.criar(this.rec);
+      if (v.policial) {
+        v.policial.configurar(this.reduzirFlashes);
+        v.rig.corpo.visible = false; v.rig.raiz.add(v.policial.raiz);
+      }
+    }
+    if (v.policial) {
+      const podeAtirar = v.vel > .3 && (i.modo === 'perseguicao' || i.modo === 'ataque') && alvoDisponivelParaTiro(world, i);
+      v.policial.animar(i, v.vel, simDt, undefined, undefined, podeAtirar, v.recuando);
+    }
   }
 
   private aplicar(v: Vista, i: Inimigo): void {

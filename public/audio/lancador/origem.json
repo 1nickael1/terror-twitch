@@ -1,0 +1,7 @@
+{
+  "arquivo": "magiazzz-cannon_shot_1-1782958714819-560881.mp3",
+  "origem": "Fornecido pelo usuário; original preservado em Downloads.",
+  "duracao": 2.5,
+  "ajuste": "Silêncio final removido, fade de 100 ms ao final; reprodução no disparo do lança-agente.",
+  "impacto.mp3": { "arquivo": "freesound_community-explode3-87806.mp3", "ajuste": "Original preservado; toca na explosão da cápsula ao atingir o cenário ou um inimigo." }
+}

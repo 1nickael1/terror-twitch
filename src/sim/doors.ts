@@ -27,8 +27,9 @@ function alguemNoVao(w: World, p: Porta): boolean {
 }
 
 function mudar(p: Porta, estado: Porta['estado']): SimEvent[] {
+  const destrancou = p.estado === 'trancada' && (estado === 'abrindo' || estado === 'fechada');
   p.estado = estado;
-  return [{ tipo: 'porta', id: p.id, estado }];
+  return [...(destrancou ? [{ tipo: 'porta_desbloqueada' as const, id: p.id }] : []), { tipo: 'porta', id: p.id, estado }];
 }
 
 function portaPorId(w: World, id: string): Porta {

@@ -35,10 +35,10 @@ describe('sirene (o som do alarme toca por um tempo; as luzes seguem o alarme)',
     expect(lacosDaFase(w).alarme).toBe(false);
   });
 
-  it('o laço do alarme só toca com o alarme ligado e sirene restante', () => {
+  it('o alarme não cria laço de áudio, mesmo ligado e com tempo restante', () => {
     const w = mundo();
     executar(w, { acao: 'alarme', ligado: true });
-    expect(lacosDaFase(w).alarme).toBe(true);
+    expect(lacosDaFase(w).alarme).toBe(false);
     w.sirene = 0;
     expect(lacosDaFase(w).alarme).toBe(false);
   });

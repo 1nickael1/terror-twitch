@@ -30,7 +30,7 @@ describe('gatilhos', () => {
     w.jogador.pos = centro([2, 1]);
     const ev = avancarGatilhos(w, []);
     expect(ev[0]).toEqual({ tipo: 'gatilho', id: 'g1' });
-    expect(ev.map((e) => e.tipo)).toEqual(['gatilho', 'mensagem', 'porta', 'alarme']);
+    expect(ev.map((e) => e.tipo)).toEqual(['gatilho', 'mensagem', 'porta_desbloqueada', 'porta', 'alarme']);
     expect(w.alarme).toBe(true);
     expect(w.portas[0].estado).toBe('abrindo');
     expect(avancarGatilhos(w, [])).toEqual([]);

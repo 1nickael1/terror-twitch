@@ -3,11 +3,12 @@ import { IA, PORTA } from '../balance';
 import { comandarPorta, solidoDe } from '../doors';
 import type { SimEvent } from '../eventos';
 import {
-  alturaPiso, caminho, centro, coordDe, DEGRAU, moverComColisao, passavel, SALTO, type Coord, type Grid, type Solido, type Vec2,
+  alturaPiso, caminho, centro, coordDe, DEGRAU, passavel, SALTO, type Coord, type Grid, type Solido, type Vec2,
 } from '../grid';
 import { celulaFechada } from '../perigos';
 import type { Inimigo, World } from '../world';
 import { tipoDe } from './tipos';
+import { moverEntreInimigos } from './colisaoInimigos';
 
 /** Yaw de quem olha na direção (dx, dz), com frente = (-sin yaw, -cos yaw). */
 export function yawPara(dx: number, dz: number): number {
@@ -30,8 +31,8 @@ export function encarar(i: Inimigo, p: Vec2): void {
 }
 
 /**
- * Anda em linha reta até `destino`, no máximo `vel * dt`, colidindo com a grade e com portas
- * fechadas, e fica na altura do piso. Chegou se parou no destino, ou se um bloqueio o deixou
+ * Anda em linha reta até `destino`, no máximo `vel * dt`, colidindo com a grade, portas
+ * fechadas e outros inimigos vivos, e fica na altura do piso. Chegou se parou no destino, ou se um bloqueio o deixou
  * parado a menos de `IA.chegada` dele.
  */
 export function andar(w: World, i: Inimigo, destino: Vec2, vel: number, dt: number): boolean {
@@ -42,7 +43,7 @@ export function andar(w: World, i: Inimigo, destino: Vec2, vel: number, dt: numb
   const passo = Math.min(d, vel * dt);
   if (passo <= 0) return false;
   const antes = i.pos;
-  i.pos = moverComColisao(w.grid, i.pos, i.y, (dx / d) * passo, (dz / d) * passo, tipoDe(i.tipo).raio, DEGRAU, solidoDe(w));
+  i.pos = moverEntreInimigos(w, i, (dx / d) * passo, (dz / d) * passo);
   i.y = alturaPiso(w.grid, i.pos);
   i.yaw = yawPara(dx, dz);
   const resta = Math.hypot(destino.x - i.pos.x, destino.z - i.pos.z);

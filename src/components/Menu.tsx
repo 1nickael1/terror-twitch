@@ -28,6 +28,7 @@ function Raiz({ progresso, comando, ir }: { progresso: Progresso; comando: MenuP
   return (
     <ul ref={ref} className={css.lista} role="menu" aria-label="Menu principal">
       <li role="none"><button type="button" role="menuitem" className={css.item} onClick={() => comando({ c: 'novo_jogo' })}>Novo jogo</button></li>
+      <li role="none"><button type="button" role="menuitem" className={css.item} onClick={() => comando({ c: 'estande' })}>Estande de tiro</button></li>
       {continuar && (
         <li role="none"><button type="button" role="menuitem" className={css.item} onClick={() => comando({ c: 'continuar' })}>Continuar</button></li>
       )}

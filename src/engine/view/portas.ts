@@ -1,62 +1,65 @@
-// Portas: uma folha por porta que sobe conforme `abertura`, faixa na cor do cartão exigido,
-// indicador de tranca (vermelho trancada, verde livre) e batente fixo (unido à malha estática).
-// Folhas, faixas (uma malha por nível de cartão) e indicadores são InstancedMesh: poucas draw calls
-// qualquer que seja o número de portas.
+// Portas: folha deslizante com número de acesso pintado nas duas faces,
+// batente da largura do leitor e fechadura fixa; malhas repetidas são instanciadas.
 import { BoxGeometry, Color, InstancedMesh, Matrix4, MeshBasicMaterial, Quaternion, Vector3, type Group } from 'three';
+import { geometriaNumeroPorta } from './numerosPorta';
 import { celula, centro } from '../../sim/grid';
 import type { World } from '../../sim/world';
 import { eixoAndavel } from './faseMesh';
 import type { Coletor } from './geometria';
 import type { Recursos } from './recursos';
+import type { ModelosFechadura, VistaFechadura } from './fechadura';
 
 const LARGURA_FOLHA = 1.9;
 const ESPESSURA_FOLHA = 0.2;
 /** a folha não some inteira no teto: sobra um palmo visível sob a verga */
 const SUBIDA = 0.97;
-const ALTURA_FAIXA = 0.22;
-const Y_FAIXA = 1.15;
+const LARGURA_BATENTE = .285; // a mesma largura da fechadura normalizada para 42 cm
+const CENTRO_BATENTE = 1 - LARGURA_BATENTE / 2;
+const PROFUNDIDADE_BATENTE = .34;
+const Y_NUMERO = 1.65;
+const EIXO_Y = new Vector3(0, 1, 0);
+const ESCALA_NUMERO = new Vector3(1, 1, 1);
 const VERDE = new Color(0x30ff60);
 const VERMELHO = new Color(0xff2020);
 
 interface VistaPorta {
   base: number; altura: number; cx: number; cz: number;
-  /** escala da folha (caixa unitária) e da faixa */
-  escFolha: Vector3; escFaixa: Vector3;
-  /** malha e índice da faixa (por nível de cartão) */
-  faixa: { malha: InstancedMesh; i: number };
+  escFolha: Vector3; emX: boolean;
+  numero?: { malha: InstancedMesh; i: number };
 }
 
 export class PortasView {
   private readonly vistas: VistaPorta[] = [];
+  private readonly fechaduras = new Map<number, VistaFechadura[]>();
   private readonly folhas: InstancedMesh | null = null;
-  private readonly faixas: InstancedMesh[] = [];
+  private readonly numeros: InstancedMesh[] = [];
   private readonly indicadores: InstancedMesh | null = null;
   private readonly m = new Matrix4();
   private readonly pos = new Vector3();
   private readonly rot = new Quaternion();
 
-  constructor(world: World, rec: Recursos, co: Coletor, grupo: Group) {
+  constructor(world: World, rec: Recursos, co: Coletor, grupo: Group, fechadura?: ModelosFechadura) {
     const n = world.portas.length;
     if (n === 0) return;
     const unitaria = rec.geo(new BoxGeometry(1, 1, 1));
 
     this.folhas = rec.usar(new InstancedMesh(unitaria, undefined, n), 'porta');
     this.folhas.name = 'portas:folhas';
-    // uma malha de faixa por nível (slots `nivel-0` a `nivel-3`), com as portas daquele nível
+    // O nível é um algarismo sem cartão, fundo ou faixa, nas duas faces da folha.
     const porNivel = new Map<number, number>();
-    for (const p of world.portas) porNivel.set(p.exige ?? 0, (porNivel.get(p.exige ?? 0) ?? 0) + 1);
-    const faixaDe = new Map<number, InstancedMesh>();
+    for (const p of world.portas) if (p.exige) porNivel.set(p.exige, (porNivel.get(p.exige) ?? 0) + 1);
+    const numeroDe = new Map<number, InstancedMesh>();
+    const slotNumero = rec.slot('porta:numero-acesso', { color: 0xe7e1cf, roughness: .9, emissive: 0xe7e1cf, emissiveIntensity: .08 });
     for (const [nivel, qtd] of porNivel) {
-      const malha = rec.usar(new InstancedMesh(unitaria, undefined, qtd), `nivel-${nivel}`);
-      malha.name = `portas:faixa-${nivel}`;
+      const malha = rec.usar(new InstancedMesh(rec.geo(geometriaNumeroPorta(nivel)), undefined, qtd * 2), slotNumero);
+      malha.name = `portas:numero-${nivel}`;
       malha.count = 0;
-      faixaDe.set(nivel, malha);
-      this.faixas.push(malha);
+      numeroDe.set(nivel, malha);
+      this.numeros.push(malha);
     }
-    for (const malha of [this.folhas, ...this.faixas]) {
+    for (const malha of [this.folhas, ...this.numeros]) {
       malha.castShadow = true;
       malha.receiveShadow = true;
-      // as matrizes mudam a cada quadro: a esfera de todas as portas não serve para recorte
       malha.frustumCulled = false;
       grupo.add(malha);
     }
@@ -75,29 +78,40 @@ export class PortasView {
         emX ? new BoxGeometry(prof, alt, ao) : new BoxGeometry(ao, alt, prof);
       const escala = (ao: number, prof: number, alt: number) => (emX ? new Vector3(prof, alt, ao) : new Vector3(ao, alt, prof));
 
-      const malhaFaixa = faixaDe.get(p.exige ?? 0)!;
+      const malhaNumero = p.exige ? numeroDe.get(p.exige) : undefined;
       const vista: VistaPorta = {
         base: c.piso + altura / 2, altura, cx, cz,
         escFolha: escala(LARGURA_FOLHA, ESPESSURA_FOLHA, altura),
-        escFaixa: escala(LARGURA_FOLHA, ESPESSURA_FOLHA + 0.02, ALTURA_FAIXA),
-        faixa: { malha: malhaFaixa, i: malhaFaixa.count++ },
+        emX, numero: malhaNumero ? { malha: malhaNumero, i: malhaNumero.count } : undefined,
       };
+      if (malhaNumero) malhaNumero.count += 2;
       this.vistas.push(vista);
 
       // batente: dois montantes e a verga, fixos
       for (const lado of [-1, 1]) {
-        const montante = caixa(0.08, 0.34, altura);
-        montante.translate(emX ? cx : cx + lado * 0.96, c.piso + altura / 2, emX ? cz + lado * 0.96 : cz);
+        const montante = caixa(LARGURA_BATENTE, PROFUNDIDADE_BATENTE, altura);
+        montante.translate(emX ? cx : cx + lado * CENTRO_BATENTE, c.piso + altura / 2, emX ? cz + lado * CENTRO_BATENTE : cz);
         co.add('metal', montante);
       }
-      const verga = caixa(2, 0.34, 0.16);
-      verga.translate(cx, c.teto - 0.08, cz);
+      const verga = caixa(2, PROFUNDIDADE_BATENTE, LARGURA_BATENTE);
+      verga.translate(cx, c.teto - LARGURA_BATENTE / 2, cz);
       co.add('metal', verga);
 
       // indicador nos dois lados da porta, junto ao montante, saltado da face
       [-1, 1].forEach((face, j) => {
+        if (p.exige && fechadura) {
+          const vista = fechadura.criarVista(rec, p.exige);
+          vista.grupo.name = `fechadura:${p.id}:${face}`;
+          vista.grupo.position.set(emX ? cx + face * .207 : cx + CENTRO_BATENTE, c.piso + 1.45, emX ? cz + CENTRO_BATENTE : cz + face * .207);
+          vista.grupo.rotation.y = emX ? face * Math.PI / 2 : face === 1 ? 0 : Math.PI;
+          grupo.add(vista.grupo);
+          const faces = this.fechaduras.get(k) ?? []; faces.push(vista); this.fechaduras.set(k, faces);
+          this.m.makeScale(0, 0, 0);
+          ind.setMatrixAt(k * 2 + j, this.m);
+          return;
+        }
         const fora = face * 0.2;
-        this.m.makeTranslation(emX ? cx + fora : cx + 0.96, c.piso + 1.45, emX ? cz + 0.96 : cz + fora);
+        this.m.makeTranslation(emX ? cx + fora : cx + CENTRO_BATENTE, c.piso + 1.45, emX ? cz + CENTRO_BATENTE : cz + fora);
         ind.setMatrixAt(k * 2 + j, this.m);
         ind.setColorAt(k * 2 + j, VERMELHO);
       });
@@ -115,15 +129,21 @@ export class PortasView {
       const v = this.vistas[k];
       if (!v) return;
       const y = v.base + p.abertura * v.altura * SUBIDA;
+      this.rot.identity();
       this.folhas!.setMatrixAt(k, this.m.compose(this.pos.set(v.cx, y, v.cz), this.rot, v.escFolha));
-      const yFaixa = y + Y_FAIXA - v.altura / 2;
-      v.faixa.malha.setMatrixAt(v.faixa.i, this.m.compose(this.pos.set(v.cx, yFaixa, v.cz), this.rot, v.escFaixa));
+      if (v.numero) for (const [j, face] of [-1, 1].entries()) {
+        const fora = face * (ESPESSURA_FOLHA / 2 + .008);
+        this.pos.set(v.emX ? v.cx + fora : v.cx, y + Y_NUMERO - v.altura / 2, v.emX ? v.cz : v.cz + fora);
+        this.rot.setFromAxisAngle(EIXO_Y, v.emX ? face * Math.PI / 2 : face === 1 ? 0 : Math.PI);
+        v.numero.malha.setMatrixAt(v.numero.i + j, this.m.compose(this.pos, this.rot, ESCALA_NUMERO));
+      }
       const cor = p.estado === 'trancada' ? VERMELHO : VERDE;
+      for (const f of this.fechaduras.get(k) ?? []) f.definirLiberada(p.estado !== 'trancada');
       this.indicadores!.setColorAt(k * 2, cor);
       this.indicadores!.setColorAt(k * 2 + 1, cor);
     });
     this.folhas.instanceMatrix.needsUpdate = true;
-    for (const f of this.faixas) f.instanceMatrix.needsUpdate = true;
+    for (const numero of this.numeros) numero.instanceMatrix.needsUpdate = true;
     if (this.indicadores.instanceColor) this.indicadores.instanceColor.needsUpdate = true;
   }
 }

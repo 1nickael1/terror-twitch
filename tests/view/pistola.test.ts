@@ -1,0 +1,158 @@
+import { readFile } from 'node:fs/promises';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { Box3, PerspectiveCamera, Texture, Vector3, type Mesh, type Object3D } from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MaterialBank } from '../../src/engine/materials';
+import { ClaraoCano } from '../../src/engine/lights';
+import { normalizarPistola } from '../../src/engine/view/acervoPistola';
+import { normalizarEscopeta } from '../../src/engine/view/acervoEscopeta';
+import { normalizarSMG } from '../../src/engine/view/acervoSMG';
+import { normalizarLancador } from '../../src/engine/view/acervoLancador';
+import { ArmasView } from '../../src/engine/view/armas';
+import { Recursos } from '../../src/engine/view/recursos';
+import { criarWorld } from '../../src/sim/world';
+import { faseMinima } from '../sim/ajuda';
+
+vi.mock('../../src/engine/view/texturasEfeitos', () => ({ texturaClarao: () => new Texture() }));
+let modelo: Object3D, escopeta: Object3D, smg: Object3D, lancador: Object3D;
+beforeAll(async () => {
+  const b = await readFile('public/models/pistola/pistola.glb'); const tamanho = b.readUInt32LE(12);
+  const json = JSON.parse(b.subarray(20, 20 + tamanho).toString());
+  expect(json.images).toHaveLength(3);
+  expect(json.accessors[json.meshes[0].primitives[0].indices].count / 3).toBe(9866);
+  const meta = JSON.parse(await readFile('public/models/pistola/modelo.json', 'utf8'));
+  expect(meta.origem).toBe('Meshy_AI_Neon_Warden_1111013552_texture.glb');
+  expect(meta.simplificada).toBe(false);
+  json.materials = [{}]; json.images = []; json.textures = []; json.extensionsUsed = []; json.extensionsRequired = [];
+  const texto = Buffer.from(JSON.stringify(json)); b.fill(0x20, 20, 20 + tamanho); texto.copy(b, 20);
+  const gltf = await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength), '');
+  modelo = normalizarPistola(gltf.scene);
+  const s = await readFile('public/models/escopeta/escopeta.glb'), t = s.readUInt32LE(12);
+  const shotgun = JSON.parse(s.subarray(20, 20 + t).toString());
+  expect(shotgun.accessors[shotgun.meshes[0].primitives[0].indices].count / 3).toBe(18427);
+  shotgun.materials = [{}]; shotgun.images = []; shotgun.textures = []; shotgun.extensionsUsed = []; shotgun.extensionsRequired = [];
+  const sj = Buffer.from(JSON.stringify(shotgun)); s.fill(0x20, 20, 20 + t); sj.copy(s, 20);
+  const g = await new GLTFLoader().parseAsync(s.buffer.slice(s.byteOffset, s.byteOffset + s.byteLength), '');
+  escopeta = normalizarEscopeta(g.scene);
+  const sb = await readFile('public/models/smg/smg.glb'), st = sb.readUInt32LE(12);
+  const sjg = JSON.parse(sb.subarray(20, 20 + st).toString());
+  expect(sjg.accessors[sjg.meshes[0].primitives[0].indices].count / 3).toBe(21550);
+  sjg.materials = [{}]; sjg.images = []; sjg.textures = []; sjg.extensionsUsed = []; sjg.extensionsRequired = [];
+  const sjb = Buffer.from(JSON.stringify(sjg)); sb.fill(0x20, 20, 20 + st); sjb.copy(sb, 20);
+  const sg = await new GLTFLoader().parseAsync(sb.buffer.slice(sb.byteOffset, sb.byteOffset + sb.byteLength), '');
+  smg = normalizarSMG(sg.scene);
+  const lb = await readFile('public/models/lancador/lancador.glb'), lt = lb.readUInt32LE(12);
+  const lj = JSON.parse(lb.subarray(20, 20 + lt).toString());
+  expect(lj.accessors[lj.meshes[0].primitives[0].indices].count / 3).toBe(20791);
+  lj.materials = [{}]; lj.images = []; lj.textures = []; lj.extensionsUsed = []; lj.extensionsRequired = [];
+  const ltexto = Buffer.from(JSON.stringify(lj)); lb.fill(0x20, 20, 20 + lt); ltexto.copy(lb, 20);
+  const lg = await new GLTFLoader().parseAsync(lb.buffer.slice(lb.byteOffset, lb.byteOffset + lb.byteLength), '');
+  lancador = normalizarLancador(lg.scene);
+});
+function instancia(comEscopeta = false) {
+  const bank = new MaterialBank();
+  for (const slot of ['pistola-neon', 'escopeta-tactical', 'smg-sentinel', 'lancador-viper', 'arma', 'arma-cabo', 'arma-detalhe', 'arma-mira', 'arma-capsula']) bank.define(slot, { color: 0xffffff });
+  const rec = new Recursos(bank), camera = new PerspectiveCamera(80, 16 / 9, .05, 120), clarao = new ClaraoCano(camera);
+  const view = new ArmasView(rec, camera, clarao, modelo, escopeta, smg, lancador);
+  const w = criarWorld(faseMinima('#####\n#P..#\n#####'));
+  if (comEscopeta) w.jogador.arma = 'escopeta';
+  view.sincronizar(w, [], 0);
+  return { view, camera, rec, w, dispose: () => { view.dispose(); clarao.dispose(); rec.dispose(); bank.dispose(); } };
+}
+describe('armas Meshy do jogador em primeira pessoa', () => {
+  it('equipa o Iron Viper no slot do lançador e mantém o clarão alinhado sem girar a malha inteira', () => {
+    const caixa = new Box3().setFromObject(lancador);
+    expect(caixa.getSize(new Vector3()).z).toBeCloseTo(.62, 3);
+    expect(caixa.min.z).toBeCloseTo(-.427, 2);
+    const a = instancia(); a.w.jogador.arma = 'lancador';
+    a.view.sincronizar(a.w, [{ tipo: 'arma_trocada', arma: 'lancador' }], .2);
+    const grupo = a.camera.getObjectByName('arma:lancador-iron-viper')!;
+    expect(grupo.visible).toBe(true);
+    const orientacao = grupo.quaternion.clone(), cano = a.camera.getObjectByName('lancador:cano')!;
+    let plano!: Mesh; a.camera.traverse(o => { const m = o as Mesh; if (m.isMesh && m.geometry.type === 'PlaneGeometry') plano = m; });
+    for (let n = 0; n < 6; n++) {
+      a.w.t += .1; a.view.sincronizar(a.w, [{ tipo: 'tiro', arma: 'lancador', pos: { ...a.w.jogador.pos } }], .1);
+      a.camera.updateMatrixWorld(true);
+      expect(grupo.quaternion.angleTo(orientacao)).toBeLessThan(.00001);
+      const ponta = cano.getWorldPosition(new Vector3());
+      expect(Math.hypot(ponta.x, ponta.z)).toBeLessThan(.28);
+      expect(plano.getWorldPosition(new Vector3()).distanceTo(ponta)).toBeLessThan(.01);
+      expect(plano.visible).toBe(true);
+    }
+    a.w.jogador.arma = 'escopeta'; a.view.sincronizar(a.w, [{ tipo: 'arma_trocada', arma: 'escopeta' }], .2);
+    expect(grupo.visible).toBe(false); a.dispose();
+  });
+  it('equipa a SMG, mantém o clarão alinhado em rajadas e preserva a malha ao reconstruir a fase', () => {
+    const caixa = new Box3().setFromObject(smg);
+    expect(caixa.getSize(new Vector3()).z).toBeCloseTo(.54, 3);
+    expect(caixa.min.z).toBeCloseTo(-.321, 2);
+    const a = instancia(), b = instancia();
+    const grupo = a.camera.getObjectByName('arma:smg-rusted-sentinel')!;
+    expect(grupo.visible).toBe(false);
+    a.w.jogador.arma = 'smg'; a.view.sincronizar(a.w, [{ tipo: 'arma_trocada', arma: 'smg' }], .2);
+    expect(grupo.visible).toBe(true);
+    const cano = a.camera.getObjectByName('smg:cano')!;
+    let plano!: Mesh; a.camera.traverse(o => { const m = o as Mesh; if (m.isMesh && m.geometry.type === 'PlaneGeometry') plano = m; });
+    for (let n = 0; n < 10; n++) {
+      a.w.t += .08;
+      a.view.sincronizar(a.w, [{ tipo: 'tiro', arma: 'smg', pos: { ...a.w.jogador.pos } }], .08);
+      a.camera.updateMatrixWorld(true);
+      expect(plano.visible).toBe(true);
+      const ponta = cano.getWorldPosition(new Vector3());
+      expect(Math.hypot(ponta.x, ponta.z)).toBeLessThan(.28);
+      expect(plano.getWorldPosition(new Vector3()).distanceTo(ponta)).toBeLessThan(.01);
+    }
+    let ma!: Mesh, mb!: Mesh;
+    grupo.traverse(o => { if ((o as Mesh).isMesh) ma = o as Mesh; });
+    b.camera.getObjectByName('arma:smg-rusted-sentinel')!.traverse(o => { if ((o as Mesh).isMesh) mb = o as Mesh; });
+    expect(ma.geometry).toBe(mb.geometry);
+    let descartada = false; ma.geometry.addEventListener('dispose', () => { descartada = true; });
+    a.dispose(); expect(descartada).toBe(false); b.dispose();
+  });
+  it('substitui a escopeta, alinha o clarão e limita o alcance na câmera para não entrar na parede', () => {
+    const caixa = new Box3().setFromObject(escopeta);
+    expect(caixa.getSize(new Vector3()).z).toBeCloseTo(.64, 3);
+    expect(caixa.min.z).toBeCloseTo(-.428, 2);
+    const a = instancia(true), grupo = a.camera.getObjectByName('arma:escopeta-worn-tactical')!;
+    expect(grupo.visible).toBe(true);
+    const cano = a.camera.getObjectByName('escopeta:cano')!;
+    a.view.sincronizar(a.w, [{ tipo: 'tiro', arma: 'escopeta', pos: { ...a.w.jogador.pos } }], 0);
+    a.camera.updateMatrixWorld(true);
+    const ponta = cano.getWorldPosition(new Vector3());
+    expect(Math.hypot(ponta.x, ponta.z)).toBeLessThan(.28);
+    let plano!: Mesh; a.camera.traverse(o => { const m = o as Mesh; if (m.isMesh && m.geometry.type === 'PlaneGeometry') plano = m; });
+    expect(plano.visible).toBe(true);
+    expect(plano.getWorldPosition(new Vector3()).distanceTo(ponta)).toBeLessThan(.01);
+    a.w.jogador.arma = 'pistola'; a.view.sincronizar(a.w, [{ tipo: 'arma_trocada', arma: 'pistola' }], .2);
+    expect(grupo.visible).toBe(false);
+    expect(a.camera.getObjectByName('arma:pistola-neon-warden')!.visible).toBe(true); a.dispose();
+  });
+  it('aponta para -Z com tamanho de 30 cm antes do suporte e clarão na boca do cano', () => {
+    const caixa = new Box3().setFromObject(modelo);
+    expect(caixa.getSize(new Vector3()).z).toBeCloseTo(.30, 3);
+    expect(caixa.min.z).toBeCloseTo(-.232, 2);
+    const a = instancia();
+    const cano = a.camera.getObjectByName('pistola:cano')!;
+    expect(cano.position.z).toBeCloseTo(caixa.min.z, 2);
+    a.view.sincronizar(a.w, [{ tipo: 'tiro', arma: 'pistola', pos: { ...a.w.jogador.pos } }], 0);
+    a.camera.updateMatrixWorld(true);
+    let plano!: Mesh;
+    a.camera.traverse(o => { const m = o as Mesh; if (m.isMesh && m.geometry.type === 'PlaneGeometry') plano = m; });
+    expect(plano.visible).toBe(true);
+    expect(plano.getWorldPosition(new Vector3()).distanceTo(cano.getWorldPosition(new Vector3()))).toBeLessThan(.01);
+    a.view.configurar(true, 1); expect(plano.visible).toBe(false); a.dispose();
+  });
+  it('preserva a geometria compartilhada ao trocar arma e reconstruir a fase', () => {
+    const a = instancia(), b = instancia();
+    const grupo = a.camera.getObjectByName('arma:pistola-neon-warden')!;
+    let ma!: Mesh, mb!: Mesh;
+    grupo.traverse(o => { if ((o as Mesh).isMesh) ma = o as Mesh; });
+    b.camera.getObjectByName('arma:pistola-neon-warden')!.traverse(o => { if ((o as Mesh).isMesh) mb = o as Mesh; });
+    expect(ma.geometry).toBe(mb.geometry); expect(grupo.visible).toBe(true);
+    a.w.jogador.arma = 'smg'; a.view.sincronizar(a.w, [{ tipo: 'arma_trocada', arma: 'smg' }], .2);
+    expect(grupo.visible).toBe(false);
+    a.w.jogador.arma = 'pistola'; a.view.reiniciar(); a.view.sincronizar(a.w, [], 0); expect(grupo.visible).toBe(true);
+    let descartada = false; ma.geometry.addEventListener('dispose', () => { descartada = true; });
+    a.dispose(); expect(descartada).toBe(false); b.dispose();
+  });
+});

@@ -4,7 +4,7 @@
 // plano aditivo nem luz. O suporte é pequeno e fica a menos de 0,3 m do olho (o raio do jogador):
 // assim a arma não entra nas paredes mesmo com `depthTest` normal.
 import {
-  AdditiveBlending, Group, Mesh, MeshBasicMaterial, PlaneGeometry, type PerspectiveCamera,
+  AdditiveBlending, Group, Mesh, MeshBasicMaterial, PlaneGeometry, type Object3D, type PerspectiveCamera,
 } from 'three';
 import type { SimEvent } from '../../sim/eventos';
 import type { ArmaId } from '../../sim/fase';
@@ -18,6 +18,8 @@ import { texturaClarao } from './texturasEfeitos';
 const ESCALA = 0.42;
 /** posição da empunhadura na tela (antes da escala) */
 const POSICAO = { x: 0.2, y: -0.17, z: -0.38 } as const;
+/** Ajuste por modelo para esconder mais a empunhadura; shotgun é a referência visual. */
+const ALTURA_MODELO: Record<ArmaId, number> = { pistola: -.10, escopeta: 0, smg: -.04, lancador: -.025 };
 /**
  * a boca do cano fica no máximo a esta distância em z (antes da escala): 0,6 × 0,42 = 0,25 m, e
  * com o deslocamento lateral, o balanço e o atraso a ponta fica a menos de 0,28 m do olho na
@@ -58,13 +60,15 @@ export class ArmasView {
   private reduzirFlashes = false;
   private luz = 1;
 
-  constructor(rec: Recursos, private readonly camera: PerspectiveCamera, private readonly clarao: ClaraoCano) {
+  constructor(rec: Recursos, private readonly camera: PerspectiveCamera, private readonly clarao: ClaraoCano, pistola?: Object3D, escopeta?: Object3D, smg?: Object3D, lancador?: Object3D) {
     this.suporte.name = 'armas';
     this.suporte.scale.setScalar(ESCALA);
     this.suporte.add(this.balanco);
-    this.modelos = construirArmas(rec);
-    for (const m of Object.values(this.modelos)) {
+    this.modelos = construirArmas(rec, pistola, escopeta, smg, lancador);
+    for (const id of Object.keys(this.modelos) as ArmaId[]) {
+      const m = this.modelos[id];
       m.grupo.visible = false;
+      m.grupo.position.y = ALTURA_MODELO[id];
       // armas compridas (escopeta, smg, lançador) vêm mais para trás
       m.grupo.position.z = Math.max(0, -(POSICAO.z + m.cano.position.z) - ALCANCE_Z);
       this.balanco.add(m.grupo);

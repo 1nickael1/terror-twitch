@@ -4,6 +4,8 @@
 import { Mixer } from '../audio/Mixer';
 import { audioDeveTocar } from '../audio/regras';
 import { SomDaFase } from '../audio/SomDaFase';
+import { AcervoSons } from '../audio/AcervoSons';
+import { CarregamentoAssets } from './carregamentoAssets';
 import type { VisualStyle } from '../looks/types';
 import type { Opcoes } from '../save/opcoes';
 import { JOGADOR } from '../sim/balance';
@@ -34,6 +36,8 @@ export class Engine {
   private readonly medidor = new MedidorDeQuadro();
   /** áudio: o contexto só nasce no primeiro clique no canvas */
   private readonly mixer = new Mixer();
+  private readonly assets = new CarregamentoAssets();
+  private readonly sons = new AcervoSons(this.assets);
   private somDaFase: SomDaFase | null = null;
   /** último estado da simulação visto pelo áudio (começa `true` para suspender no 1º quadro parado) */
   private audioAtivo = true;
@@ -62,7 +66,7 @@ export class Engine {
     styles: readonly VisualStyle[],
     opcoes: Opcoes,
   ) {
-    this.palco = new Palco(canvas, styles, opcoes.filtro);
+    this.palco = new Palco(canvas, styles, opcoes.filtro, this.assets);
     this.olhos = new CameraJogador(this.palco.camera);
     this.input = new Input(canvas, (travado) => {
       if (travado) this.input.limparBordas();
@@ -80,6 +84,7 @@ export class Engine {
   }
 
   get world(): World | null { return this._world; }
+  get carregamento() { return this.palco.carregamento; }
   get travado(): boolean { return this.input.estaTravado; }
 
   on(l: (e: EngineEvent) => void): () => void {
@@ -165,10 +170,10 @@ export class Engine {
     const world = criarWorld(f);
     // só vira a fase atual depois que o runtime existe (ele se limpa sozinho se falhar)
     const { scene, camera, bank, texturas } = this.palco;
-    this.runtime = new LevelRuntime({ scene, camera, bank, texturas, fase: f, world, doutor: this.palco.doutor });
+    this.runtime = new LevelRuntime({ scene, camera, bank, texturas, fase: f, world, fechadura: this.palco.fechadura, doutor: this.palco.doutor, policial: this.palco.policial, pistola: this.palco.pistola.modelo ?? undefined, escopeta: this.palco.escopeta.modelo ?? undefined, smg: this.palco.smg.modelo ?? undefined, lancador: this.palco.lancador.modelo ?? undefined });
     this.fase = f;
     this._world = world;
-    this.somDaFase = new SomDaFase(this.mixer, f);
+    this.somDaFase = new SomDaFase(this.mixer, f, this.sons);
     this.palco.aplicarCena(f.ambiente);
     this.configurarRuntime();
     this.runtime.mostrarArmas(this.armaVisivel);
@@ -204,6 +209,7 @@ export class Engine {
     this.input.dispose();
     this.descarregarFase();
     this.mixer.dispose();
+    this.sons.dispose();
     this.listeners.clear();
     this.palco.dispose();
     this.removerDepuracao?.();

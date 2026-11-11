@@ -43,6 +43,14 @@ export function tiroLivre(w: World, i: Inimigo): boolean {
   return alcanceTiro(w.grid, i.pos, dir, d, solidoDe(w), y0, inclinacao) >= d;
 }
 
+/** Alvo visível, no alcance da arma e sem obstrução. A cadência continua na IA. */
+export function alvoDisponivelParaTiro(w: World, i: Inimigo): boolean {
+  const t = tipoDe(i.tipo);
+  return t.arquetipo === 'atirador'
+    && distanciaJogador(w, i) <= Math.min(t.alcanceAtaque, alcanceVisao(w, i))
+    && linhaDeVisao(w, i) && tiroLivre(w, i);
+}
+
 /** Emboscador: só a até `emboscadaPerto`, ou a até `emboscadaCostas` se o jogador está de costas para ele. */
 function emboscadorPercebe(w: World, i: Inimigo, d: number): boolean {
   if (d <= IA.emboscadaPerto) return true;

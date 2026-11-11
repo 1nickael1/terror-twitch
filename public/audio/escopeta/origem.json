@@ -1,0 +1,16 @@
+{
+  "origem": "Arquivos fornecidos pelo usuário; originais preservados em Downloads.",
+  "tiro.mp3": {
+    "arquivo": "universfield-shotgun-blast-352038.mp3",
+    "inicioOriginal": 0.29,
+    "ajuste": "Remoção de silêncio inicial; restante da cauda preservada."
+  },
+  "recarga.mp3": {
+    "arquivo": "freesound_community-shotgun_rack-82033.mp3",
+    "inicioOriginal": 0.24,
+    "fimOriginal": 0.84,
+    "ganho": 0.55,
+    "ajuste": "Primeiro ciclo de engatilhamento, com fades curtos. Reprodução ajustada à cadência da shotgun."
+  },
+  "sincronizacao": "Disparo imediato; recarga começa em 27% e termina em 92% do cooldown (0,243 s a 0,828 s com cadência de 0,9 s)."
+}

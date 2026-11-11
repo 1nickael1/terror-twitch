@@ -4,6 +4,7 @@ import type { Inimigo } from '../world';
 
 export type Arquetipo = 'avancador' | 'atirador' | 'emboscador';
 export interface TipoInimigo {
+  imovel?: boolean;
   arquetipo: Arquetipo; vida: number; velocidade: number; raio: number; altura: number;
   visao: number; visaoEscuro: number; cone: number; audicao: number;   // audicao multiplica o raio do ruído
   dano: number; alcanceAtaque: number; cadencia: number; preparo: number; dor: number;
@@ -18,6 +19,12 @@ export interface TipoInimigo {
 const CONE = (110 * Math.PI) / 180;
 
 export const TIPOS: Record<string, TipoInimigo> = {
+  alvo_treino: {
+    imovel: true, arquetipo: 'avancador', vida: 500, velocidade: 0, raio: 0.4, altura: 1.8,
+    visao: 0, visaoEscuro: 0, cone: 0, audicao: 0,
+    dano: 0, alcanceAtaque: 0, cadencia: 1, preparo: 1, dor: 0.15,
+    distanciaIdeal: 0, projetil: null, reanimavel: false, deitado: false,
+  },
   funcionario: {
     arquetipo: 'avancador', vida: 40, velocidade: 4.5, raio: 0.35, altura: 1.8,
     visao: 16, visaoEscuro: 7, cone: CONE, audicao: 1,

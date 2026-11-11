@@ -1,5 +1,5 @@
 // Importa o FBX Meshy/Mixamo e seus mapas PBR para um GLB leve, com animações preservadas.
-// Uso: node scripts/importar-doutor.mjs caminho/para/pasta-exportada
+// Uso: node scripts/importar-doutor.mjs caminho/para/pasta-exportada [doutor|policial]
 import { readFile, readdir, mkdir, writeFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { Box3, MeshStandardMaterial, Vector3 } from 'three';
@@ -8,6 +8,8 @@ import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import sharp from 'sharp';
 
 const pasta = process.argv[2];
+const perfil = process.argv[3] ?? 'doutor';
+if (!['doutor', 'policial'].includes(perfil)) throw new Error('Perfil inválido: use doutor ou policial.');
 if (!pasta) throw new Error('Informe a pasta que contém o FBX e seus quatro mapas PBR.');
 const arquivos = await readdir(pasta);
 const nome = arquivos.find((n) => n.toLowerCase().endsWith('.fbx'));
@@ -35,10 +37,10 @@ modelo.traverse((o) => {
   triangulos += (o.geometry.index?.count ?? o.geometry.attributes.position.count) / 3;
   o.material = material;
 });
-const destino = path.resolve('public/models/doutor');
+const destino = path.resolve('public/models', perfil);
 await mkdir(destino, { recursive: true });
 const glb = await new GLTFExporter().parseAsync(modelo, { binary: true, animations: modelo.animations, onlyVisible: false });
-await writeFile(path.join(destino, 'doutor.glb'), Buffer.from(glb));
+await writeFile(path.join(destino, `${perfil}.glb`), Buffer.from(glb));
 const base = nome.slice(0, -4);
 const mapas = [
   ['albedo', `${base}.png`], ['normal', `${base}_normal.png`],
@@ -50,13 +52,16 @@ for (const [id, png] of mapas) {
 }
 const dados = {
   origem: 'Modelo criado pelo usuário no Meshy; FBX animado Mixamo 60 fps.',
-  usoNoJogo: { tipo: 'funcionario', altura: 1.8, caminhada: 'Unsteady_Walk', corrida: 'Run_02', ataque: 'Avanço do tronco e fechamento dos dois braços, sincronizado ao preparo da IA.' },
+  usoNoJogo: perfil === 'doutor'
+    ? { tipo: 'funcionario', altura: 1.8, caminhada: 'Unsteady_Walk', corrida: 'Run_02', ataque: 'Avanço do tronco e fechamento dos dois braços, sincronizado ao preparo da IA.' }
+    : { tipo: 'seguranca', altura: 1.8, arma: 'Olive Drab Battle Rifle (Meshy), preso à mão direita e alinhado ao apoio esquerdo; asset em models/arma-policial.' },
   arquivoOriginal: nome, malhas, vertices, triangulos, ossos,
+  ...(perfil === 'policial' ? { animacoesExtras: ['/models/policial/recuo.json'] } : {}),
   caixa: { min: caixa.min.toArray(), max: caixa.max.toArray(), tamanho: medidas.toArray() },
   animacoes: modelo.animations.map((a) => ({ nome: a.name, duracao: a.duration, trilhas: a.tracks.length,
     primeiraTrilha: a.tracks[0]?.name })),
-  mapas: Object.fromEntries(mapas.map(([id]) => [id, `/models/doutor/${id}.webp`])),
-  bytesModelo: (await stat(path.join(destino, 'doutor.glb'))).size,
+  mapas: Object.fromEntries(mapas.map(([id]) => [id, `/models/${perfil}/${id}.webp`])),
+  bytesModelo: (await stat(path.join(destino, `${perfil}.glb`))).size,
 };
 await writeFile(path.join(destino, 'modelo.json'), JSON.stringify(dados, null, 2) + '\n');
 console.log(JSON.stringify(dados, null, 2));

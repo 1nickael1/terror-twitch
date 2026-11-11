@@ -8,7 +8,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { TIPOS } from '../../sim/ai/tipos';
 import { ENTIDADE049, ENTIDADE096, SLOT_LENTE_049, SLOT_OLHO_CHEFE } from './moldeChefe';
 import {
-  CIRURGICO, ENFERMEIRO, FUNCIONARIO, GENERICO, REANIMADO, SEGURANCA,
+  ALVO_TREINO, CIRURGICO, ENFERMEIRO, FUNCIONARIO, GENERICO, REANIMADO, SEGURANCA,
   type Antebraco, type Molde, type Osso, type OssoBase, type Peca,
 } from './moldesInimigos';
 import type { Recursos } from './recursos';
@@ -16,6 +16,7 @@ import type { Recursos } from './recursos';
 export type { Osso, PoseBase } from './moldesInimigos';
 
 export const MOLDES: Readonly<Record<string, Molde>> = {
+  alvo_treino: ALVO_TREINO,
   funcionario: FUNCIONARIO, seguranca: SEGURANCA, entidade096: ENTIDADE096,
   reanimado: REANIMADO, reanimado_cirurgico: CIRURGICO, enfermeiro: ENFERMEIRO, entidade049: ENTIDADE049,
 };

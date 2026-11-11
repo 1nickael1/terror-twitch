@@ -23,7 +23,7 @@ export default function GameCanvas() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    store.attach(canvas);
+    void store.attach(canvas);
     return () => store.detach();
   }, [store]);
 
@@ -45,7 +45,7 @@ export default function GameCanvas() {
         : <Menu progresso={snap.progresso} opcoes={snap.opcoes} comando={comando} definirOpcoes={definirOpcoes} />;
     } else if (t === 'pausa') {
       tela = (
-        <Pausa nomeFase={snap.nomeFase} travaRecusada={snap.travaRecusada} opcoes={snap.opcoes}
+        <Pausa nomeFase={snap.nomeFase} estande={snap.fase < 0} travaRecusada={snap.travaRecusada} opcoes={snap.opcoes}
           comando={comando} definirOpcoes={definirOpcoes} />
       );
     } else if (t === 'documento' && snap.documento) {
@@ -68,9 +68,24 @@ export default function GameCanvas() {
   return (
     <main className={css.root}>
       <canvas ref={canvasRef} className={css.canvas} aria-label="Cena do jogo" />
+      {!snap.pronto && <section className={css.carregamento} aria-label="Carregamento do jogo" aria-busy={!snap.erro}>
+        <div className={css.carregamentoPainel}>
+          <p className={css.carregamentoEtiqueta}>FUNDAÇÃO SCP / ACESSO RESTRITO</p>
+          <h1>SCP TERROR</h1>
+          <h2>{snap.erro ? 'Falha no carregamento' : 'Preparando a instalação'}</h2>
+          {snap.erro ? <>
+            <p role="alert">{snap.erro}</p>
+            <button className={css.carregamentoBotao} onClick={() => { if (canvasRef.current) void store.attach(canvasRef.current); }}>Tentar novamente</button>
+          </> : <>
+            <p>Baixando texturas, modelos e sons. O jogo começa quando tudo estiver pronto.</p>
+            <div className={css.carregamentoNumeros}><span>{snap.carregamento.concluidos} / {snap.carregamento.total || '…'} recursos</span><strong>{snap.carregamento.total ? Math.floor(snap.carregamento.concluidos / snap.carregamento.total * 100) : 0}%</strong></div>
+            <progress className={css.carregamentoBarra} aria-label="Progresso do carregamento" max={Math.max(1, snap.carregamento.total)} value={snap.carregamento.concluidos} />
+            <p className={css.carregamentoDica}>O primeiro acesso pode demorar um pouco mais.</p>
+          </>}
+        </div>
+      </section>}
       {snap.pronto && comHud && <Hud snap={snap} />}
       {tela}
-      {snap.erro && <div className={css.erro} role="alert">{snap.erro}</div>}
     </main>
   );
 }

@@ -1,4 +1,4 @@
-// Síntese dos sons do jogo, toda em WebAudio (nenhum arquivo de som). Cada função monta o som
+// Sons procedurais do jogo em WebAudio. Cada função monta o som
 // a partir de `t`, conecta a saída em `destino` e devolve as fontes (para saber quando acaba).
 // Timbre de terror: seco, grave, pouco brilho. Base: um buffer de ruído branco gerado uma vez.
 

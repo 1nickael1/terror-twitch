@@ -1,6 +1,8 @@
 // Orquestração das telas: guarda o `EstadoTela`, aplica `transicao` (pura) e executa os efeitos na
 // engine (carregar fase, pausar, trava do ponteiro, renascer, gravar progresso). Sem React.
 import { FASES } from '../levels/indice';
+import { ESTANDE } from '../levels/estande';
+import { FASE_ESTANDE } from '../sim/tela';
 import type { Armazenamento } from '../save/opcoes';
 import { carregarProgresso, registrarConclusao, salvarProgresso, type Progresso } from '../save/progresso';
 import type { DocumentoDef } from '../sim/fase';
@@ -57,7 +59,7 @@ export class Game {
     const depois = transicao(antes, cmd, FASES.length, this._progresso.desbloqueadas);
     if (depois === antes) return;
     this._estado = depois;
-    this.efeitos(antes, depois);
+    this.efeitos(antes, depois, cmd.c === 'reiniciar_estande');
     this.aoMudar();
   }
 
@@ -81,12 +83,12 @@ export class Game {
     document.removeEventListener('pointerlockerror', this.onErroTrava);
   }
 
-  private efeitos(antes: EstadoTela, depois: EstadoTela): void {
-    this.efeitosDaTela(antes, depois);
+  private efeitos(antes: EstadoTela, depois: EstadoTela, reiniciar = false): void {
+    this.efeitosDaTela(antes, depois, reiniciar);
     this.engine.mostrarArma(TELAS_COM_ARMA.has(depois.tela));
   }
 
-  private efeitosDaTela(antes: EstadoTela, depois: EstadoTela): void {
+  private efeitosDaTela(antes: EstadoTela, depois: EstadoTela, reiniciar: boolean): void {
     const e = this.engine;
     if (depois.tela !== 'pausa') this._travaRecusada = false;
     if (depois.tela !== 'jogando') this.retomandoDaPausa = false;
@@ -105,9 +107,9 @@ export class Game {
         e.pedirTrava();
         this._documento = null;
         this.retomandoDaPausa = antes.tela === 'pausa';
-        if (antes.tela === 'titulo' || antes.tela === 'fim_de_fase') {
+        if (antes.tela === 'titulo' || antes.tela === 'fim_de_fase' || reiniciar) {
           this._resultado = null;
-          e.carregarFase(FASES[depois.fase]);
+          e.carregarFase(depois.fase === FASE_ESTANDE ? ESTANDE : FASES[depois.fase]);
         }
         this.esperaTravaAte = performance.now() + ESPERA_TRAVA_MS;
         return;
